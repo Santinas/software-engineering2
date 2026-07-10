@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>iCreate | Offer My Services</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="index.html">
+      <div class="nav-brand-icon">iC</div>
+      <span class="nav-brand-name">iCreate</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="find-talent.html">Find Talent</a></li>
+      <li><a href="offer-services.html">Offer My Services</a></li>
+      <li><a href="index.html#how">How it Works</a></li>
+      <li><a href="index.html#about">About</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="login.html"><button class="btn-ghost">Log In</button></a>
+      <a href="signup.html"><button class="btn-solid">Sign Up</button></a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── PAGE HERO ── -->
+<div class="page-hero">
+  <h1>Offer My Services</h1>
+  <p>Join iCreate as a student freelancer. Showcase your skills, build your portfolio, and start earning today.</p>
+</div>
+
+<!-- ── SIGNUP FORM ── -->
+<section class="section" style="background:var(--off-white)">
+  <div class="signup-wrap">
+    <div class="signup-card">
+      <h2>Freelancer Sign Up</h2>
+      <p>Complete your profile to start receiving project commissions from real clients.</p>
+
+      <!-- PERSONAL INFO -->
+      <div class="form-section-label">Personal Information</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>First Name</label>
+          <input type="text" id="signup-first-name" placeholder="e.g. Maria" required />
+        </div>
+        <div class="form-group">
+          <label>Last Name</label>
+          <input type="text" id="signup-last-name" placeholder="e.g. Santos" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>iAcademy Email</label>
+        <input type="email" id="signup-email" placeholder="yourname@iacademy.edu.ph" required />
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Program / Course</label>
+          <select id="signup-program" required>
+            <option value="">Select your program</option>
+            <option>BS Information Technology</option>
+            <option>BS Computer Science</option>
+            <option>BS Entertainment and Multimedia Computing</option>
+            <option>BS Multimedia Arts</option>
+            <option>BS Graphic Design and Illustration</option>
+            <option>BS Fashion Design and Technology</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Year Level</label>
+          <select id="signup-year" required>
+            <option value="">Select year</option>
+            <option>1st Year</option>
+            <option>2nd Year</option>
+            <option>3rd Year</option>
+            <option>4th Year</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- PROFILE DESCRIPTION -->
+      <div class="form-section-label">Profile Description</div>
+      <div class="form-group">
+        <label>Professional Headline</label>
+        <input type="text" id="signup-headline" placeholder="e.g. Full-Stack Developer specializing in React & Node.js" required />
+      </div>
+      <div class="form-group">
+        <label>Bio / About Me</label>
+        <textarea id="signup-bio" placeholder="Tell clients about yourself, your experience, what drives you, and what kind of projects you love working on..." required></textarea>
+      </div>
+
+      <!-- SKILL SETS -->
+      <div class="form-section-label">Skill Sets</div>
+      <p style="font-size:.85rem;color:var(--gray-mid);margin-bottom:12px;">Select all that apply to you:</p>
+      <div class="skills-picker" id="signup-skills-picker">
+        <span class="skill-pick chosen" onclick="this.classList.toggle('chosen')">React</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Vue.js</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Node.js</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Python</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">PHP / Laravel</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">MySQL / PostgreSQL</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">UI/UX Design</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Figma</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Adobe Illustrator</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Adobe Photoshop</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Premiere Pro</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">After Effects</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">DaVinci Resolve</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Blender / 3D</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Motion Graphics</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Branding & Identity</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Digital Illustration</span>
+        <span class="skill-pick" onclick="this.classList.toggle('chosen')">Game Dev</span>
+      </div>
+      <div class="form-group" style="margin-top:18px;">
+        <label>Starting Rate (₱ / hour)</label>
+        <input type="number" id="signup-rate" placeholder="e.g. 150" required />
+      </div>
+
+      <!-- CONTACT INFORMATION -->
+      <div class="form-section-label">Contact Information</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Mobile Number</label>
+          <input type="tel" id="signup-mobile" placeholder="+63 9XX XXX XXXX" required />
+        </div>
+        <div class="form-group">
+          <label>Location</label>
+          <input type="text" id="signup-location" placeholder="e.g. Makati, Metro Manila" required />
+        </div>
+      </div>
+      <div class="form-group">
+        <label>LinkedIn Profile (optional)</label>
+        <input type="url" id="signup-linkedin" placeholder="https://linkedin.com/in/yourname" />
+      </div>
+      <div class="form-group">
+        <label>Behance / GitHub / Portfolio URL (optional)</label>
+        <input type="url" id="signup-portfolio" placeholder="https://behance.net/yourname" />
+      </div>
+
+      <!-- PORTFOLIO UPLOAD -->
+      <div class="form-section-label">Portfolio</div>
+      <p style="font-size:.85rem;color:var(--gray-mid);margin-bottom:14px;">Upload samples of your best work. Images, PDFs, or link to an external portfolio.</p>
+      <div class="portfolio-upload" id="portfolio-upload-area" onclick="document.getElementById('signup-portfolio-file').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+        <input type="file" id="signup-portfolio-file" multiple accept="image/*,.pdf" style="display:none" onclick="event.stopPropagation()" onchange="handlePortfolioFileSelect(this)" />
+        <div class="portfolio-upload-icon">📁</div>
+        <p><strong>Click to upload</strong> or drag and drop here</p>
+        <p style="margin-top:6px;font-size:.78rem;">PNG, JPG, PDF up to 10MB each</p>
+      </div>
+      <div id="portfolio-file-list" style="margin-top:14px; display:flex; flex-direction:column; gap:8px;"></div>
+
+      <button class="form-submit" id="signup-submit-btn" onclick="handleFreelancerSubmit(event)">
+        Submit My Profile
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-bottom-simple">
+    <span>© 2026 iCreate Freelancing Platform. All rights reserved.</span>
+    <span>An iAcademy Initiative</span>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "iCreate",
+  "description": "The premier platform to find, hire, and commission top-tier iAcademy student freelancers.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "name": "icreate-talent-marketplace",
+  "version": "1.0.0",
+  "description": "Commission iAcademy Talent",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'No build required for static site'",
+    "lint": "echo 'No lint required for static site'"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^4.19.2"
+  }
+}

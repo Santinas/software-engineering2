@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign Up | iCreate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .login-container {
+      min-height: calc(100vh - 136px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--off-white);
+      padding: 60px 24px;
+    }
+    .login-card-wrap {
+      width: 100%;
+      max-width: 480px;
+    }
+    .login-logo-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .login-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
+      background: linear-gradient(135deg,var(--blue-mid),var(--blue-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .login-logo-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--blue-deep);
+    }
+    .login-card {
+      background: #fff;
+      border: 1px solid var(--gray-light);
+      border-radius: var(--radius-lg);
+      padding: 44px;
+      box-shadow: var(--shadow-lg);
+    }
+    .login-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--gray-light);
+      margin-bottom: 28px;
+    }
+    .login-tab {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      font-weight: 600;
+      color: var(--gray-mid);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: var(--transition);
+      font-size: 0.95rem;
+    }
+    .login-tab.active {
+      color: var(--blue-mid);
+      border-bottom-color: var(--blue-mid);
+    }
+    .login-header-text {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-header-text h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .login-header-text p {
+      color: var(--gray-mid);
+      font-size: 0.92rem;
+    }
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      font-weight: 600;
+      z-index: 1000;
+      display: none;
+      animation: fadeInUp 0.3s cubic-bezier(.4,0,.2,1);
+    }
+    .toast.error {
+      background: #ef4444;
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="index.html">
+      <div class="nav-brand-icon">iC</div>
+      <span class="nav-brand-name">iCreate</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="find-talent.html">Find Talent</a></li>
+      <li><a href="offer-services.html">Offer My Services</a></li>
+      <li><a href="index.html#how">How it Works</a></li>
+      <li><a href="index.html#about">About</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="login.html"><button class="btn-ghost">Log In</button></a>
+      <a href="signup.html"><button class="btn-solid">Sign Up</button></a>
+    </div>
+  </div>
+</nav>
+
+<div class="login-container">
+  <div class="login-card-wrap">
+    <div class="login-logo-header">
+      <div class="login-logo-icon">iC</div>
+      <div class="login-logo-title">iCreate</div>
+    </div>
+
+    <div class="login-card">
+      <div class="login-header-text">
+        <h2 id="signup-title">Create Account</h2>
+        <p id="signup-sub">Join the iAcademy student freelancing network</p>
+      </div>
+
+      <div class="login-tabs">
+        <div class="login-tab active" id="tab-client" onclick="switchSignupType('client')">Client Account</div>
+        <div class="login-tab" id="tab-student" onclick="switchSignupType('student')">Student Account</div>
+      </div>
+
+      <form id="signup-form" onsubmit="handleSignupSubmit(event)">
+        <div class="form-group">
+          <label for="fullname-input">Full Name</label>
+          <input type="text" id="fullname-input" placeholder="e.g. Maria Santos" required />
+        </div>
+
+        <div class="form-group">
+          <label id="username-label" for="username-input">Email Address</label>
+          <input type="email" id="username-input" placeholder="e.g. client@example.com" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password-input">Password</label>
+          <input type="password" id="password-input" placeholder="Min. 6 characters" minlength="6" required />
+        </div>
+
+        <div class="form-group">
+          <label for="confirm-password-input">Confirm Password</label>
+          <input type="password" id="confirm-password-input" placeholder="Repeat your password" minlength="6" required />
+        </div>
+
+        <button type="submit" class="form-submit" id="signup-btn">Create Account</button>
+      </form>
+
+      <p style="text-align: center; margin-top: 28px; font-size: 0.9rem; color: var(--gray-mid);">
+        Already have an account? <a href="login.html" style="color: var(--blue-mid); font-weight: 600;">Sign In here</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast-message"></div>
+
+<footer>
+  <div class="footer-bottom-simple">
+    <div>&copy; 2026 iCreate. All rights reserved.</div>
+    <div>Official Student Freelancing Platform of iAcademy.</div>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+<script>
+  let currentType = 'client';
+
+  function switchSignupType(type) {
+    currentType = type;
+    document.getElementById('tab-client').classList.toggle('active', type === 'client');
+    document.getElementById('tab-student').classList.toggle('active', type === 'student');
+
+    const subText = document.getElementById('signup-sub');
+    const userLabel = document.getElementById('username-label');
+    const userInput = document.getElementById('username-input');
+
+    if (type === 'client') {
+      subText.textContent = 'Sign up to hire top-tier iAcademy talent';
+      userLabel.textContent = 'Email Address';
+      userInput.placeholder = 'e.g. client@example.com';
+      userInput.type = 'email';
+    } else {
+      subText.textContent = 'Register to offer your freelance services & build portfolio';
+      userLabel.textContent = 'iAcademy Student Email';
+      userInput.placeholder = 'e.g. m.reyes@iacademy.edu.ph';
+      userInput.type = 'text';
+    }
+  }
+
+  function showToast(message, isError = false) {
+    const toast = document.getElementById('toast-message');
+    toast.textContent = message;
+    toast.className = isError ? 'toast error' : 'toast';
+    toast.style.display = 'block';
+    if (!isError) {
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+  }
+
+  async function handleSignupSubmit(event) {
+    event.preventDefault();
+
+    const fullName = document.getElementById('fullname-input').value.trim();
+    const email = document.getElementById('username-input').value.trim();
+    const password = document.getElementById('password-input').value;
+    const confirmPassword = document.getElementById('confirm-password-input').value;
+
+    if (password !== confirmPassword) {
+      showToast("Passwords do not match", true);
+      return;
+    }
+
+    if (currentType === 'student' && !email.toLowerCase().endsWith('@iacademy.edu.ph')) {
+      showToast("Please use your official iAcademy email (@iacademy.edu.ph)", true);
+      return;
+    }
+
+    const signupBtn = document.getElementById('signup-btn');
+    const originalText = signupBtn.textContent;
+    signupBtn.disabled = true;
+    signupBtn.textContent = 'Registering Account...';
+
+    try {
+      const supabase = await getSupabase();
+      
+      const { data, error } = await supabase.auth.signUp({
+        email: email,
+        password: password,
+        options: {
+          data: {
+            full_name: fullName,
+            role: currentType
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      showToast("Account registered! Logging you in...");
+
+      // Automatically sign in the user or set localStorage session
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('userName', fullName);
+      localStorage.setItem('userType', currentType);
+      localStorage.setItem('userEmail', email);
+
+      setTimeout(() => {
+        if (currentType === 'student') {
+          // If student, prompt them to offer services right away
+          window.location.href = 'offer-services.html';
+        } else {
+          window.location.href = 'index.html';
+        }
+      }, 1500);
+
+    } catch (err) {
+      console.error('Signup error:', err);
+      showToast(err.message || "Failed to register. Please check credentials or try again.", true);
+      signupBtn.disabled = false;
+      signupBtn.textContent = originalText;
+    }
+  }
+</script>
+</body>
+</html>

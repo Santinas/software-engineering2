@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Log In | iCreate</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .login-container {
+      min-height: calc(100vh - 136px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--off-white);
+      padding: 60px 24px;
+    }
+    .login-card-wrap {
+      width: 100%;
+      max-width: 460px;
+    }
+    .login-logo-header {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 32px;
+    }
+    .login-logo-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 11px;
+      background: linear-gradient(135deg,var(--blue-mid),var(--blue-light));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: 700;
+      font-size: 1.15rem;
+    }
+    .login-logo-title {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--blue-deep);
+    }
+    .login-card {
+      background: #fff;
+      border: 1px solid var(--gray-light);
+      border-radius: var(--radius-lg);
+      padding: 44px;
+      box-shadow: var(--shadow-lg);
+    }
+    .login-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--gray-light);
+      margin-bottom: 28px;
+    }
+    .login-tab {
+      flex: 1;
+      text-align: center;
+      padding: 12px;
+      font-weight: 600;
+      color: var(--gray-mid);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      transition: var(--transition);
+      font-size: 0.95rem;
+    }
+    .login-tab.active {
+      color: var(--blue-mid);
+      border-bottom-color: var(--blue-mid);
+    }
+    .login-header-text {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+    .login-header-text h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.8rem;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+    .login-header-text p {
+      color: var(--gray-mid);
+      font-size: 0.92rem;
+    }
+    .remember-forgot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+      margin-top: 4px;
+      margin-bottom: 24px;
+    }
+    .remember-forgot label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--gray-dark);
+      cursor: pointer;
+      user-select: none;
+    }
+    .remember-forgot a {
+      color: var(--blue-mid);
+      font-weight: 600;
+      transition: var(--transition);
+    }
+    .remember-forgot a:hover {
+      color: var(--blue-deep);
+    }
+    .toast {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      font-weight: 600;
+      z-index: 1000;
+      display: none;
+      animation: fadeInUp 0.3s cubic-bezier(.4,0,.2,1);
+    }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a class="nav-brand" href="index.html">
+      <div class="nav-brand-icon">iC</div>
+      <span class="nav-brand-name">iCreate</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="find-talent.html">Find Talent</a></li>
+      <li><a href="offer-services.html">Offer My Services</a></li>
+      <li><a href="index.html#how">How it Works</a></li>
+      <li><a href="index.html#about">About</a></li>
+    </ul>
+    <div class="nav-actions">
+      <a href="login.html"><button class="btn-ghost">Log In</button></a>
+      <a href="offer-services.html"><button class="btn-solid">Sign Up</button></a>
+    </div>
+  </div>
+</nav>
+
+<div class="login-container">
+  <div class="login-card-wrap">
+    <div class="login-logo-header">
+      <div class="login-logo-icon">iC</div>
+      <div class="login-logo-title">iCreate</div>
+    </div>
+
+    <div class="login-card">
+      <div class="login-header-text">
+        <h2 id="login-welcome-title">Welcome Back</h2>
+        <p id="login-sub">Sign in to hire top-tier iAcademy talent</p>
+      </div>
+
+      <div class="login-tabs">
+        <div class="login-tab active" id="tab-client" onclick="switchLoginType('client')">Client Login</div>
+        <div class="login-tab" id="tab-student" onclick="switchLoginType('student')">Student Login</div>
+      </div>
+
+      <form id="login-form" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label id="username-label" for="username-input">Email Address</label>
+          <input type="email" id="username-input" placeholder="e.g. client@example.com" required />
+        </div>
+
+        <div class="form-group">
+          <label for="password-input">Password</label>
+          <input type="password" id="password-input" placeholder="••••••••" required />
+        </div>
+
+        <div class="remember-forgot">
+          <label>
+            <input type="checkbox" id="remember-me" style="accent-color:var(--blue-mid)" /> Remember me
+          </label>
+          <a href="#" onclick="alert('Password recovery features are coming soon. For testing, please use any email and password.')">Forgot Password?</a>
+        </div>
+
+        <button type="submit" class="form-submit">Sign In</button>
+      </form>
+
+      <p style="text-align: center; margin-top: 28px; font-size: 0.9rem; color: var(--gray-mid);">
+        Don't have an account? <a href="offer-services.html" style="color: var(--blue-mid); font-weight: 600;">Offer services as Talent</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="success-toast">
+  Successfully logged in! Redirecting you to home...
+</div>
+
+<footer>
+  <div class="footer-bottom-simple">
+    <div>&copy; 2026 iCreate. All rights reserved.</div>
+    <div>Official Student Freelancing Platform of iAcademy.</div>
+  </div>
+</footer>
+
+<script src="main.js"></script>
+<script>
+  let currentType = 'client';
+
+  function switchLoginType(type) {
+    currentType = type;
+    document.getElementById('tab-client').classList.toggle('active', type === 'client');
+    document.getElementById('tab-student').classList.toggle('active', type === 'student');
+
+    const subText = document.getElementById('login-sub');
+    const userLabel = document.getElementById('username-label');
+    const userInput = document.getElementById('username-input');
+
+    if (type === 'client') {
+      subText.textContent = 'Sign in to hire top-tier iAcademy talent';
+      userLabel.textContent = 'Email Address';
+      userInput.placeholder = 'e.g. client@example.com';
+      userInput.type = 'email';
+    } else {
+      subText.textContent = 'Access your student freelance dashboard & profile';
+      userLabel.textContent = 'iAcademy Student Email';
+      userInput.placeholder = 'e.g. m.reyes@iacademy.edu.ph';
+      userInput.type = 'text';
+    }
+  }
+
+  async function handleLoginSubmit(event) {
+    event.preventDefault();
+
+    const email = document.getElementById('username-input').value.trim();
+    const password = document.getElementById('password-input').value;
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    const originalBtnText = submitBtn.textContent;
+    
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Signing In...';
+
+    try {
+      const supabase = await getSupabase();
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password
+      });
+
+      if (error) throw error;
+
+      const user = data.user;
+      let displayName = user.user_metadata?.full_name || email.split('@')[0];
+      let userRole = user.user_metadata?.role || currentType;
+
+      // Store user session state
+      localStorage.setItem('isLoggedIn', 'true');
+      localStorage.setItem('userName', displayName);
+      localStorage.setItem('userType', userRole);
+      localStorage.setItem('userEmail', email);
+
+      // Show beautiful toast notification
+      const toast = document.getElementById('success-toast');
+      toast.textContent = `Successfully logged in as ${displayName}!`;
+      toast.style.display = 'block';
+
+      setTimeout(() => {
+        window.location.href = 'index.html';
+      }, 1500);
+
+    } catch (err) {
+      console.error('Login error:', err);
+      alert(err.message || "Invalid email or password. Please try again.");
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalBtnText;
+    }
+  }
+</script>
+</body>
+</html>
