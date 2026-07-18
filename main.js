@@ -435,9 +435,7 @@ window.handleFreelancerSubmit = async function(event) {
       mobile: mobile,
       location: location,
       linkedin: linkedin || null,
-      portfolio: portfolioUrls, // Save as array
-      avatar: null,
-      cover: null
+      portfolio: JSON.stringify(portfolioUrls) // Column is plain text, so store as a JSON string
     };
 
     // Save to Supabase
@@ -489,7 +487,20 @@ function renderFreelancerCard(f, grid, pageCategory) {
   if (!matches) return;
 
   const fullName = `${f.first_name} ${f.last_name}`;
-  
+
+  // portfolio is stored as a JSON string in the DB (plain text column) — parse it back into an array
+  let portfolioArr = [];
+  if (Array.isArray(f.portfolio)) {
+    portfolioArr = f.portfolio; // already an array (e.g. from localStorage fallback)
+  } else if (typeof f.portfolio === 'string' && f.portfolio.trim()) {
+    try {
+      const parsed = JSON.parse(f.portfolio);
+      portfolioArr = Array.isArray(parsed) ? parsed : [f.portfolio];
+    } catch {
+      portfolioArr = [f.portfolio]; // fallback for old rows saved as a plain string
+    }
+  }
+
   // Register in global object so openProfile works!
   freelancers[fullName] = {
     role: `${f.headline} · ${f.program}`,
@@ -499,9 +510,7 @@ function renderFreelancerCard(f, grid, pageCategory) {
     rate: `₱${f.rate} / hour`,
     projects: '0 completed',
     skills: f.skills || [],
-    portfolio: Array.isArray(f.portfolio)
-      ? (f.portfolio.length > 0 ? f.portfolio : ['https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&q=70'])
-      : (f.portfolio ? [f.portfolio] : ['https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&q=70'])
+    portfolio: portfolioArr.length > 0 ? portfolioArr : ['https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&q=70']
   };
 
   // Build the element
