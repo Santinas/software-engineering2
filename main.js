@@ -154,22 +154,55 @@ function switchTab(tab) {
   });
 }
 
-function goToPayment() {
+/* ── SUBMIT COMMISSION (no payment step) ── */
+async function submitCommissionRequest(btn) {
   const name   = document.getElementById('client-name').value.trim();
   const email  = document.getElementById('client-email').value.trim();
   const type   = document.getElementById('project-type').value;
   const desc   = document.getElementById('project-desc').value.trim();
   const budget = document.getElementById('project-budget').value;
+  const deadline = document.getElementById('project-deadline').value;
 
   if (!name || !email || !type || !desc || !budget) {
-    alert('Please fill in all required fields before continuing.');
+    alert('Please fill in all required fields before submitting.');
     return;
   }
 
-  const formatted = '₱' + Number(budget).toLocaleString('en-PH');
-  document.getElementById('payment-amount').textContent = formatted;
+  if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
+
+  const f = freelancers[currentFreelancer] || {};
+  const commissionData = {
+    freelancer_name: currentFreelancer,
+    freelancer_email: f.email || null,
+    client_name: name,
+    client_email: email.toLowerCase(),
+    project_type: type,
+    project_desc: desc,
+    budget: parseInt(budget, 10),
+    deadline: deadline || null
+  };
+
+  let savedRemote = false;
+  try {
+    const supabase = await getSupabase();
+    const { error } = await supabase.from('commissions').insert([commissionData]);
+    if (error) throw error;
+    savedRemote = true;
+  } catch (err) {
+    console.warn('Failed to insert commission into Supabase. Storing locally as fallback.', err);
+  }
+
+  // Local fallback ONLY when the online save failed (saving both would
+  // show the booking twice in the notification feed)
+  if (!savedRemote) {
+    const localCommissions = JSON.parse(localStorage.getItem('localCommissions') || '[]');
+    localCommissions.push({ ...commissionData, status: 'pending', created_at: new Date().toISOString() });
+    localStorage.setItem('localCommissions', JSON.stringify(localCommissions));
+  }
+
+  if (btn) { btn.disabled = false; btn.textContent = 'Submit Commission Request'; }
   document.getElementById('commission-step-1').style.display = 'none';
-  document.getElementById('commission-step-2').style.display = 'block';
+  document.getElementById('commission-step-3').style.display = 'block';
 }
 
 function handleFileUpload(input) {
@@ -231,57 +264,6 @@ async function getSupabase() {
 
   supabaseClient = window.supabase.createClient(url, config.supabaseAnonKey);
   return supabaseClient;
-}
-
-/* ── SUBMIT COMMISSION WITH SUPABASE ── */
-async function submitCommission() {
-  const ref       = document.getElementById('gcash-ref').value.trim();
-  const fileInput = document.getElementById('gcash-file');
-  if (!fileInput.files || !fileInput.files[0]) {
-    alert('Please upload your GCash screenshot before submitting.');
-    return;
-  }
-  if (!ref) {
-    alert('Please enter your GCash reference number.');
-    return;
-  }
-
-  const clientName = document.getElementById('client-name').value.trim();
-  const clientEmail = document.getElementById('client-email').value.trim();
-  const projType = document.getElementById('project-type').value;
-  const projDesc = document.getElementById('project-desc').value.trim();
-  const budget = document.getElementById('project-budget').value;
-  const deadline = document.getElementById('project-deadline').value;
-
-  const commissionData = {
-    freelancer_name: currentFreelancer,
-    client_name: clientName,
-    client_email: clientEmail,
-    project_type: projType,
-    project_desc: projDesc,
-    budget: parseInt(budget, 10),
-    deadline: deadline || null,
-    gcash_ref: ref,
-    screenshot_url: fileInput.files[0].name
-  };
-
-  // Submit to Supabase
-  try {
-    const supabase = await getSupabase();
-    const { data, error } = await supabase.from('commissions').insert([commissionData]);
-    if (error) throw error;
-    console.log('Commission saved successfully to Supabase:', data);
-  } catch (err) {
-    console.warn('Failed to insert commission into Supabase. Storing locally as fallback.', err);
-  }
-
-  // Backup store to localStorage
-  const localCommissions = JSON.parse(localStorage.getItem('localCommissions') || '[]');
-  localCommissions.push(commissionData);
-  localStorage.setItem('localCommissions', JSON.stringify(localCommissions));
-
-  document.getElementById('commission-step-2').style.display = 'none';
-  document.getElementById('commission-step-3').style.display = 'block';
 }
 
 /* ── PORTFOLIO FILE UPLOAD & DRAG & DROP ── */
@@ -691,6 +673,370 @@ async function deleteFreelancer(email, name, card) {
   }
 }
 
+/* ── COMMISSION NOTIFICATIONS (nav bell) ── */
+let notifBookings = [];
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function timeAgo(iso) {
+  if (!iso) return '';
+  const s = Math.floor((Date.now() - new Date(iso)) / 1000);
+  if (s < 60) return 'Just now';
+  const m = Math.floor(s / 60); if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60); if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24); if (d < 7) return `${d}d ago`;
+  return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+// Identity of a booking independent of where it was stored (Supabase vs
+// localStorage fallback) — created_at intentionally excluded because the
+// two copies get different timestamps
+function commissionKey(c) {
+  return [
+    (c.client_email || '').toLowerCase().trim(),
+    (c.freelancer_email || c.freelancer_name || '').toLowerCase().trim(),
+    c.project_type || '',
+    String(c.budget || ''),
+    (c.project_desc || '').slice(0, 60)
+  ].join('|');
+}
+
+// Latest activity relevant TO ME (for the unread badge)
+function notifEventTime(c) {
+  const times = c._kind === 'received'
+    ? [c.created_at, c.payment_at]   // new booking / client paid
+    : [c.status_at];                 // freelancer accepted or declined
+  return times.filter(Boolean).map(t => new Date(t).getTime()).reduce((a, b) => Math.max(a, b), 0);
+}
+
+function notifSortTime(c) {
+  return [c.created_at, c.status_at, c.payment_at]
+    .filter(Boolean).map(t => new Date(t).getTime()).reduce((a, b) => Math.max(a, b), 0);
+}
+
+async function fetchMyBookings() {
+  const myEmail = (localStorage.getItem('userEmail') || '').toLowerCase().trim();
+  const myName = (localStorage.getItem('userName') || '').trim();
+  const map = new Map();
+  const add = (c, kind) => {
+    const key = kind + '|' + commissionKey(c);
+    const existing = map.get(key);
+    if (existing) {
+      // Prefer the remote copy (has an id) but keep newer fields either way
+      map.set(key, existing.id != null ? { ...c, ...existing, _kind: kind } : { ...existing, ...c, _kind: kind });
+      return;
+    }
+    map.set(key, { ...c, _kind: kind });
+  };
+  const classify = (c) => {
+    const isFreelancerMe = (myEmail && (c.freelancer_email || '').toLowerCase() === myEmail) ||
+                           (myName && c.freelancer_name === myName);
+    const isClientMe = myEmail && (c.client_email || '').toLowerCase() === myEmail;
+    if (isFreelancerMe) add(c, 'received');
+    else if (isClientMe) add(c, 'sent');
+  };
+
+  try {
+    const filters = [];
+    if (myEmail) {
+      filters.push(`freelancer_email.eq."${myEmail}"`);
+      filters.push(`client_email.eq."${myEmail}"`);
+    }
+    if (myName) filters.push(`freelancer_name.eq."${myName}"`);
+    if (filters.length) {
+      const supabase = await getSupabase();
+      const { data, error } = await supabase.from('commissions').select('*').or(filters.join(','));
+      if (error) throw error;
+      (data || []).forEach(classify);
+    }
+  } catch (err) {
+    console.warn('Could not load commissions for notifications.', err);
+  }
+
+  try {
+    JSON.parse(localStorage.getItem('localCommissions') || '[]').forEach(classify);
+  } catch (err) { /* ignore corrupt local data */ }
+
+  return Array.from(map.values()).sort((a, b) => notifSortTime(b) - notifSortTime(a));
+}
+
+function renderNotifList() {
+  const list = document.getElementById('notif-list');
+  if (!list) return;
+  if (!notifBookings.length) {
+    list.innerHTML = `
+      <div class="notif-empty">
+        🔔<br/>No notifications yet.<br/>
+        <span style="font-size:.8rem;">Commission bookings and updates will show up here.</span>
+      </div>`;
+    return;
+  }
+  list.innerHTML = notifBookings.map((c, i) => {
+    const received = c._kind === 'received';
+    const other = received ? (c.client_name || c.client_email || 'Client')
+                           : (c.freelancer_name || 'Freelancer');
+    const status = c.status || 'pending';
+    const statusChip =
+      c.payment_ref        ? `<span class="notif-status paid">💰 Paid · Ref ${escapeHtml(c.payment_ref)}</span>` :
+      status === 'accepted' ? `<span class="notif-status accepted">✓ Accepted</span>` :
+      status === 'declined' ? `<span class="notif-status declined">✕ Declined</span>` :
+                              `<span class="notif-status pending">Pending</span>`;
+    const title = received
+      ? `<strong>${escapeHtml(other)}</strong> booked you for a commission`
+      : `You booked <strong>${escapeHtml(other)}</strong>`;
+
+    let actions = '';
+    if (received && status === 'pending') {
+      actions += `<button class="notif-btn accept" data-act="accept" data-i="${i}">✓ Accept</button>` +
+                 `<button class="notif-btn decline" data-act="decline" data-i="${i}">✕ Decline</button>`;
+    }
+    if (!received && status === 'accepted' && !c.payment_ref) {
+      actions += `<button class="notif-btn pay" data-act="pay" data-i="${i}">💳 Upload Payment</button>`;
+    }
+    if (received && c.payment_screenshot) {
+      actions += `<button class="notif-btn view" data-act="shot" data-i="${i}">🧾 View Payment</button>`;
+    }
+    const chatEmail = received ? c.client_email : c.freelancer_email;
+    if (chatEmail) {
+      actions += `<button class="notif-btn chat" data-act="chat" data-i="${i}">💬 Chat</button>`;
+    }
+
+    return `
+    <div class="notif-item">
+      <img src="${generateInitialsAvatar(other || '?')}" alt="" />
+      <div class="notif-item-main">
+        <div class="notif-item-title">${title}</div>
+        <div class="notif-item-sub">${escapeHtml(c.project_type || 'Project')} · ₱${Number(c.budget || 0).toLocaleString('en-PH')} &nbsp;${statusChip}</div>
+        ${c.project_desc ? `<div class="notif-item-desc">${escapeHtml(c.project_desc)}</div>` : ''}
+        <div class="notif-item-time">${timeAgo(c.created_at)}</div>
+        ${actions ? `<div class="notif-actions">${actions}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  list.querySelectorAll('.notif-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      handleNotifAction(btn.dataset.act, Number(btn.dataset.i));
+    });
+  });
+}
+
+async function updateCommission(c, fields) {
+  let remoteOk = false;
+  if (c.id != null) {
+    try {
+      const supabase = await getSupabase();
+      // .select() makes Supabase return the changed rows — an empty result
+      // means RLS silently blocked the update (missing update policy)
+      const { data, error } = await supabase.from('commissions').update(fields).eq('id', c.id).select();
+      if (error) throw error;
+      if (!data || !data.length) throw new Error('Update was blocked — run supabase-commissions-setup.sql to add the update policy.');
+      remoteOk = true;
+    } catch (err) {
+      console.warn('Failed to update commission in Supabase.', err);
+      alert('Could not save this change to the online database.\n' + (err.message || 'Please check your connection and try again.'));
+    }
+  }
+  // Mirror the change onto a local fallback copy if one exists
+  try {
+    const local = JSON.parse(localStorage.getItem('localCommissions') || '[]');
+    let touched = false;
+    local.forEach(lc => {
+      if (commissionKey(lc) === commissionKey(c)) { Object.assign(lc, fields); touched = true; }
+    });
+    if (touched) localStorage.setItem('localCommissions', JSON.stringify(local));
+  } catch (err) { /* ignore */ }
+
+  // Only reflect the change in the UI if it was actually saved somewhere
+  // (remote row updated, or the row only lives in this browser's fallback)
+  if (remoteOk || c.id == null) Object.assign(c, fields);
+  renderNotifList();
+  return remoteOk;
+}
+
+async function handleNotifAction(act, i) {
+  const c = notifBookings[i];
+  if (!c) return;
+  if (act === 'accept' || act === 'decline') {
+    await updateCommission(c, {
+      status: act === 'accept' ? 'accepted' : 'declined',
+      status_at: new Date().toISOString()
+    });
+  } else if (act === 'chat') {
+    const panel = document.getElementById('notif-panel');
+    if (panel) panel.classList.remove('open');
+    const email = c._kind === 'received' ? c.client_email : c.freelancer_email;
+    const name = c._kind === 'received' ? (c.client_name || email) : (c.freelancer_name || email);
+    if (window.openChatWith && email) window.openChatWith(name, email);
+  } else if (act === 'pay') {
+    openPaymentModal(i);
+  } else if (act === 'shot') {
+    viewPaymentShot(c);
+  }
+}
+
+async function refreshNotifications() {
+  notifBookings = await fetchMyBookings();
+  const seenAt = localStorage.getItem('notifSeenAt') || '';
+  const seenMs = seenAt ? new Date(seenAt).getTime() : 0;
+  const unseen = notifBookings.filter(c => {
+    const t = notifEventTime(c);
+    return t && t > seenMs;
+  }).length;
+  const badge = document.getElementById('notif-badge');
+  if (badge) {
+    badge.textContent = unseen > 9 ? '9+' : String(unseen);
+    badge.style.display = unseen > 0 ? 'flex' : 'none';
+  }
+  renderNotifList();
+}
+
+/* ── PAYMENT PROOF MODAL (opens from an accepted booking) ── */
+let payTargetIndex = null;
+let payShotDataUrl = '';
+
+function ensurePaymentModal() {
+  if (document.getElementById('payment-modal')) return;
+  const div = document.createElement('div');
+  div.id = 'payment-modal';
+  div.className = 'pay-overlay';
+  div.innerHTML = `
+    <div class="pay-card">
+      <button class="pay-close" onclick="closePaymentModal()">✕</button>
+      <h3>Payment via GCash</h3>
+      <p class="pay-sub">Send your payment to the number below, then upload a screenshot as proof.</p>
+      <div class="pay-gcash">
+        <div class="pay-gcash-label">GCash Number</div>
+        <div class="pay-gcash-num">0917-XXX-XXXX</div>
+        <div class="pay-gcash-name">Account Name: iCreate Platform</div>
+        <div class="pay-amount-row">Amount to Send: <strong id="pay-amount"></strong></div>
+      </div>
+      <div class="pay-drop" onclick="document.getElementById('pay-file').click()">
+        <input type="file" id="pay-file" accept="image/*" style="display:none" onchange="handlePayFile(this)" />
+        <div id="pay-drop-idle">
+          <div style="font-size:2rem;">📷</div>
+          <p><strong>Upload GCash screenshot</strong></p>
+          <p class="pay-hint">PNG/JPG up to 3 MB</p>
+        </div>
+        <div id="pay-drop-done" style="display:none;">
+          <img id="pay-preview" alt="" />
+          <p id="pay-filename"></p>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>GCash Reference Number</label>
+        <input type="text" id="pay-ref" placeholder="e.g. 1234567890" />
+      </div>
+      <button class="pay-submit" id="pay-submit" onclick="submitPayment()">✅ Submit Payment Proof</button>
+    </div>`;
+  div.addEventListener('click', (e) => { if (e.target === div) closePaymentModal(); });
+  document.body.appendChild(div);
+}
+
+function openPaymentModal(i) {
+  ensurePaymentModal();
+  payTargetIndex = i;
+  payShotDataUrl = '';
+  const c = notifBookings[i];
+  document.getElementById('pay-amount').textContent = '₱' + Number(c && c.budget || 0).toLocaleString('en-PH');
+  document.getElementById('pay-ref').value = '';
+  document.getElementById('pay-drop-idle').style.display = 'block';
+  document.getElementById('pay-drop-done').style.display = 'none';
+  document.getElementById('payment-modal').style.display = 'flex';
+}
+
+window.closePaymentModal = function () {
+  const m = document.getElementById('payment-modal');
+  if (m) m.style.display = 'none';
+};
+
+window.handlePayFile = async function (input) {
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  if (file.size > 3 * 1024 * 1024) {
+    alert('Screenshot is too large — maximum size is 3 MB.');
+    input.value = '';
+    return;
+  }
+  try {
+    payShotDataUrl = await readFileAsDataURL(file);
+    document.getElementById('pay-preview').src = payShotDataUrl;
+    document.getElementById('pay-filename').textContent = file.name;
+    document.getElementById('pay-drop-idle').style.display = 'none';
+    document.getElementById('pay-drop-done').style.display = 'block';
+  } catch (err) {
+    console.error('Error reading screenshot:', err);
+  }
+};
+
+window.submitPayment = async function () {
+  const ref = document.getElementById('pay-ref').value.trim();
+  if (!payShotDataUrl) { alert('Please upload your GCash screenshot first.'); return; }
+  if (!ref) { alert('Please enter your GCash reference number.'); return; }
+  const c = notifBookings[payTargetIndex];
+  if (!c) return;
+
+  const btn = document.getElementById('pay-submit');
+  btn.disabled = true; btn.textContent = 'Submitting…';
+  await updateCommission(c, {
+    payment_ref: ref,
+    payment_screenshot: payShotDataUrl,
+    payment_at: new Date().toISOString()
+  });
+  btn.disabled = false; btn.textContent = '✅ Submit Payment Proof';
+  closePaymentModal();
+  refreshNotifications();
+};
+
+function viewPaymentShot(c) {
+  if (!c.payment_screenshot) return;
+  let ov = document.getElementById('shot-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'shot-overlay';
+    ov.className = 'pay-overlay';
+    ov.innerHTML = `
+      <div class="shot-box">
+        <button class="pay-close" id="shot-close">✕</button>
+        <img id="shot-img" alt="Payment screenshot" />
+        <p id="shot-cap"></p>
+      </div>`;
+    ov.addEventListener('click', (e) => { if (e.target === ov) ov.style.display = 'none'; });
+    ov.querySelector('#shot-close').onclick = () => { ov.style.display = 'none'; };
+    document.body.appendChild(ov);
+  }
+  ov.querySelector('#shot-img').src = c.payment_screenshot;
+  ov.querySelector('#shot-cap').textContent = c.payment_ref ? 'Ref: ' + c.payment_ref : '';
+  ov.style.display = 'flex';
+}
+
+function initNotifications() {
+  const bell = document.getElementById('notif-bell');
+  const panel = document.getElementById('notif-panel');
+  if (!bell || !panel) return;
+  bell.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const open = panel.classList.toggle('open');
+    if (open) {
+      localStorage.setItem('notifSeenAt', new Date().toISOString());
+      const badge = document.getElementById('notif-badge');
+      if (badge) badge.style.display = 'none';
+      refreshNotifications();
+    }
+  });
+  document.addEventListener('click', (e) => {
+    if (panel.classList.contains('open') && !panel.contains(e.target) && !bell.contains(e.target)) {
+      panel.classList.remove('open');
+    }
+  });
+  refreshNotifications();
+  setInterval(refreshNotifications, 30000);
+}
+
 /* ── FILTER BUTTONS (visual toggle) ── */
 function initFilterBtns() {
   document.querySelectorAll('.filter-btn').forEach(btn => {
@@ -747,9 +1093,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (navActions && isLoggedIn) {
     navActions.innerHTML = `
+      <div class="notif-wrap">
+        <button class="notif-bell" id="notif-bell" title="Notifications" aria-label="Notifications">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+          </svg>
+          <span class="notif-badge" id="notif-badge"></span>
+        </button>
+        <div class="notif-panel" id="notif-panel">
+          <div class="notif-panel-head">Notifications</div>
+          <div class="notif-panel-list" id="notif-list"></div>
+        </div>
+      </div>
       <span style="font-size:0.9rem; font-weight:600; color:var(--gray-dark); margin-right:8px;">Hi, ${name}!</span>
       <button class="btn-ghost" onclick="logout()">Log Out</button>
     `;
+    initNotifications();
 
     // Pre-fill student signup profile if on offer-services.html
     const signupEmailInput = document.getElementById('signup-email');

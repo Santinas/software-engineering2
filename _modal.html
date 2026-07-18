@@ -108,8 +108,8 @@
                   <input type="date" id="project-deadline" />
                 </div>
               </div>
-              <button onclick="goToPayment()" style="width:100%;padding:14px;background:linear-gradient(135deg,#004a9f,#1a6fd4);color:#fff;font-size:.95rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:8px;box-shadow:0 6px 20px rgba(0,74,159,.28);">
-                Continue to Payment →
+              <button onclick="submitCommissionRequest(this)" style="width:100%;padding:14px;background:linear-gradient(135deg,#004a9f,#1a6fd4);color:#fff;font-size:.95rem;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif;margin-top:8px;box-shadow:0 6px 20px rgba(0,74,159,.28);">
+                Submit Commission Request
               </button>
             </div>
           </div>
@@ -187,9 +187,9 @@
           <div id="commission-step-3" style="display:none;text-align:center;padding:20px 0 10px;">
             <div style="font-size:4rem;margin-bottom:16px;">🎉</div>
             <h3 style="font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:700;color:#1c2033;margin-bottom:10px;">Commission Submitted!</h3>
-            <p style="color:#5a6278;font-size:.92rem;max-width:380px;margin:0 auto 24px;">Your request has been sent to <span id="success-name" style="color:#004a9f;font-weight:700;"></span>. You'll receive a confirmation email once your GCash payment is verified.</p>
+            <p style="color:#5a6278;font-size:.92rem;max-width:380px;margin:0 auto 24px;">Your request has been sent to <span id="success-name" style="color:#004a9f;font-weight:700;"></span>. They'll get a notification and can chat with you right here on iCreate.</p>
             <div style="background:#f0faf4;border:1.5px solid #a0ddb8;border-radius:14px;padding:20px;max-width:320px;margin:0 auto 28px;font-size:.88rem;color:#1a7a45;font-weight:600;">
-              📧 Check your email for next steps
+              💬 Watch the chat bubble for their reply
             </div>
             <button onclick="closeModal()" style="padding:13px 36px;background:linear-gradient(135deg,#004a9f,#1a6fd4);color:#fff;font-weight:700;border:none;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:.95rem;">
               Back to Browse

@@ -291,6 +291,130 @@ img { display:block; }
 .talent-cta:hover { background:var(--blue-mid); color:#fff; }
 
 
+/* ─── NOTIFICATION BELL ─── */
+.notif-wrap { position:relative; }
+.notif-bell {
+  position:relative; width:38px; height:38px; border-radius:10px;
+  background:transparent; border:none; cursor:pointer; color:var(--gray-dark);
+  display:flex; align-items:center; justify-content:center; transition:var(--transition);
+}
+.notif-bell:hover { background:var(--blue-pale); color:var(--blue-mid); }
+.notif-bell svg { width:20px; height:20px; }
+.notif-badge {
+  position:absolute; top:3px; right:3px; min-width:16px; height:16px;
+  border-radius:100px; background:#e5484d; color:#fff;
+  font-size:.62rem; font-weight:700; padding:0 4px;
+  display:none; align-items:center; justify-content:center;
+  border:2px solid #fff;
+}
+.notif-panel {
+  position:absolute; top:calc(100% + 12px); right:0;
+  width:400px; max-width:calc(100vw - 32px);
+  background:#fff; border:1px solid var(--gray-light); border-radius:16px;
+  box-shadow:var(--shadow-lg); display:none; overflow:hidden; z-index:400;
+}
+.notif-panel.open { display:block; }
+.notif-panel-head {
+  padding:14px 18px; font-weight:700; font-size:.95rem;
+  color:var(--text); border-bottom:1px solid var(--gray-light);
+}
+.notif-panel-list { max-height:380px; overflow-y:auto; }
+.notif-empty {
+  text-align:center; padding:36px 24px;
+  color:var(--gray-mid); font-size:.9rem; line-height:1.8;
+}
+.notif-item {
+  display:flex; gap:12px; align-items:flex-start; padding:14px 16px;
+  border-bottom:1px solid var(--gray-light); transition:background .18s;
+}
+.notif-item:last-child { border-bottom:none; }
+.notif-item img { width:40px; height:40px; border-radius:50%; flex-shrink:0; }
+.notif-item-main { flex:1; min-width:0; }
+.notif-item-title { font-size:.85rem; color:var(--text); line-height:1.4; }
+.notif-item-sub { font-size:.78rem; color:var(--blue-mid); font-weight:600; margin-top:3px; }
+.notif-item-desc {
+  font-size:.8rem; color:var(--gray-dark); background:var(--off-white);
+  border-radius:8px; padding:8px 10px; margin-top:7px; line-height:1.5;
+  max-height:72px; overflow-y:auto;
+}
+.notif-item-time { font-size:.72rem; color:var(--gray-mid); margin-top:4px; }
+.notif-status {
+  display:inline-block; padding:2px 9px; border-radius:100px;
+  font-size:.68rem; font-weight:700; vertical-align:middle;
+}
+.notif-status.pending  { background:var(--gray-light); color:var(--gray-dark); }
+.notif-status.accepted { background:#e8f5ee; color:#1a7a45; }
+.notif-status.declined { background:#fde8e8; color:#c0262c; }
+.notif-status.paid     { background:#e8f5ee; color:#1a7a45; }
+.notif-actions { display:flex; gap:6px; flex-wrap:wrap; margin-top:9px; }
+.notif-btn {
+  padding:7px 12px; border-radius:8px; border:none;
+  font-size:.75rem; font-weight:700; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:var(--transition);
+}
+.notif-btn.accept  { background:#1a7a45; color:#fff; }
+.notif-btn.accept:hover { background:#146338; }
+.notif-btn.decline { background:transparent; color:#c0262c; border:1.5px solid #f3d1d1; }
+.notif-btn.decline:hover { background:#fde8e8; }
+.notif-btn.chat    { background:var(--blue-mid); color:#fff; }
+.notif-btn.chat:hover { background:var(--blue-deep); }
+.notif-btn.pay     { background:linear-gradient(135deg,var(--blue-mid),var(--blue-light)); color:#fff; }
+.notif-btn.pay:hover { filter:brightness(1.08); }
+.notif-btn.view    { background:var(--gray-light); color:var(--gray-dark); }
+.notif-btn.view:hover { background:#dde3ef; }
+
+/* payment proof modal */
+.pay-overlay {
+  position:fixed; inset:0; z-index:1400;
+  background:rgba(10,20,50,.55); backdrop-filter:blur(6px);
+  display:none; align-items:center; justify-content:center; padding:20px;
+}
+.pay-card {
+  background:#fff; border-radius:20px; max-width:440px; width:100%;
+  padding:32px 28px; position:relative; max-height:90vh; overflow-y:auto;
+  box-shadow:0 40px 100px rgba(0,30,100,.25); font-family:'DM Sans',sans-serif;
+}
+.pay-close {
+  position:absolute; top:14px; right:14px; width:32px; height:32px;
+  border-radius:50%; background:#f1f5f9; border:none; cursor:pointer;
+  font-size:1rem; color:#1e293b; line-height:1;
+  display:flex; align-items:center; justify-content:center;
+}
+.pay-close:hover { background:#e2e8f0; }
+.pay-card h3 { font-family:'Playfair Display',serif; font-size:1.3rem; margin-bottom:4px; color:var(--text); }
+.pay-sub { color:var(--gray-mid); font-size:.88rem; margin-bottom:18px; }
+.pay-gcash {
+  background:linear-gradient(135deg,#e8f9f0,#d0f0e0); border:1.5px solid #a0ddb8;
+  border-radius:14px; padding:20px; text-align:center; margin-bottom:16px;
+}
+.pay-gcash-label { font-size:.72rem; font-weight:700; letter-spacing:.6px; text-transform:uppercase; color:#1a7a45; }
+.pay-gcash-num { font-size:1.5rem; font-weight:800; color:#0d5c32; letter-spacing:1.5px; margin:2px 0; }
+.pay-gcash-name { font-size:.85rem; color:#1a7a45; font-weight:600; }
+.pay-amount-row { margin-top:12px; padding-top:12px; border-top:1px solid rgba(0,100,50,.15); font-size:.85rem; color:#2d8a55; }
+.pay-amount-row strong { font-size:1.15rem; color:#0d5c32; margin-left:6px; }
+.pay-drop {
+  border:2px dashed #c0cbdf; border-radius:12px; padding:22px;
+  text-align:center; cursor:pointer; background:#fafbfd;
+  margin-bottom:14px; transition:var(--transition);
+}
+.pay-drop:hover { border-color:var(--blue-mid); background:var(--blue-pale); }
+.pay-hint { color:var(--gray-mid); font-size:.78rem; }
+#pay-preview { max-width:100%; max-height:160px; border-radius:8px; margin:0 auto 8px; display:block; }
+#pay-filename { font-size:.8rem; color:#1a7a45; font-weight:600; }
+.pay-submit {
+  width:100%; padding:13px; border:none; border-radius:10px; cursor:pointer;
+  background:linear-gradient(135deg,#1a7a45,#22a05a); color:#fff;
+  font-weight:700; font-size:.95rem; font-family:'DM Sans',sans-serif;
+}
+.pay-submit:disabled { opacity:.6; cursor:default; }
+.shot-box {
+  background:#fff; border-radius:16px; padding:20px; position:relative;
+  max-width:520px; width:100%; max-height:90vh; overflow:auto; text-align:center;
+}
+.shot-box img { max-width:100%; border-radius:10px; }
+.shot-box p { margin-top:10px; font-weight:600; color:var(--gray-dark); font-size:.9rem; }
+
+
 /* ─── ADMIN ─── */
 .admin-chip {
   padding:4px 12px; border-radius:100px;
