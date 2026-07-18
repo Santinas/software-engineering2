@@ -113,6 +113,24 @@ function openProfile(name) {
     `<img src="${src}" alt="portfolio" style="width:100%;height:130px;object-fit:cover;border-radius:10px;" />`
   ).join('');
 
+  // Inject a "Message" button for the live chat (modal markup is duplicated
+  // across pages, so adding it here covers every copy)
+  const overviewPanel = document.getElementById('panel-overview');
+  if (overviewPanel) {
+    let msgBtn = document.getElementById('modal-message-btn');
+    if (!msgBtn) {
+      msgBtn = document.createElement('button');
+      msgBtn.id = 'modal-message-btn';
+      msgBtn.style.cssText = "width:100%;padding:14px;margin-top:12px;background:transparent;color:#004a9f;font-size:.95rem;font-weight:700;border:1.5px solid #004a9f;border-radius:12px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .25s;";
+      msgBtn.onmouseover = () => { msgBtn.style.background = '#e8f0fb'; };
+      msgBtn.onmouseout = () => { msgBtn.style.background = 'transparent'; };
+      overviewPanel.appendChild(msgBtn);
+    }
+    msgBtn.textContent = `💬 Message ${name}`;
+    msgBtn.style.display = f.email ? 'block' : 'none';
+    msgBtn.onclick = () => { if (window.openChatWith) window.openChatWith(name, f.email); };
+  }
+
   switchTab('overview');
   document.getElementById('commission-step-1').style.display = 'block';
   document.getElementById('commission-step-2').style.display = 'none';
@@ -181,8 +199,19 @@ let supabaseClient = null;
 async function getSupabase() {
   if (supabaseClient) return supabaseClient;
   await loadSupabase();
-  const res = await fetch('/api/config');
-  const config = await res.json();
+
+  // Defaults so the site also works without the Node server
+  // (opened as a plain file or served by any static host)
+  let config = {
+    supabaseUrl: 'https://iswxswoypxyflahrwmgh.supabase.co',
+    supabaseAnonKey: 'sb_publishable_tmoF1hgQGT_-bj0MNEuj8Q_Vcyz1qNy'
+  };
+  try {
+    const res = await fetch('/api/config');
+    if (res.ok) config = await res.json();
+  } catch (err) {
+    console.warn('No /api/config endpoint (static hosting) — using built-in Supabase config.');
+  }
   
   // Robustly sanitize URL on the frontend
   let url = config.supabaseUrl;
@@ -503,6 +532,7 @@ function renderFreelancerCard(f, grid, pageCategory) {
 
   // Register in global object so openProfile works!
   freelancers[fullName] = {
+    email: f.email || '',
     role: `${f.headline} · ${f.program}`,
     avatar: f.avatar && !f.avatar.includes('unsplash.com') ? f.avatar : generateInitialsAvatar(fullName),
     cover: f.cover && !f.cover.includes('unsplash.com') ? f.cover : generateCoverBanner(fullName),
