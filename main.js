@@ -546,6 +546,7 @@ function renderFreelancerCard(f, grid, pageCategory) {
   // Build the element
   const card = document.createElement('div');
   card.className = 'talent-card';
+  card.dataset.email = f.email || '';
   card.innerHTML = `
     <div class="talent-body">
       <div class="talent-name">${fullName}</div>
@@ -604,6 +605,90 @@ async function loadAllDynamicProfiles() {
   } catch (err) {
     console.warn('Supabase connection or table error:', err);
   }
+
+  // If the admin check already resolved, decorate the freshly rendered cards
+  applyAdminUI();
+}
+
+/* ── ADMIN MODE ── */
+window.isAdminUser = false;
+
+async function checkAdminStatus() {
+  if (localStorage.getItem('isLoggedIn') !== 'true') return false;
+  const email = (localStorage.getItem('userEmail') || '').toLowerCase().trim();
+  if (!email) return false;
+  try {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase.from('admins').select('email').eq('email', email).limit(1);
+    if (error) throw error;
+    return !!(data && data.length);
+  } catch (err) {
+    console.warn('Admin check failed (admins table not set up yet?)', err);
+    return false;
+  }
+}
+
+function applyAdminUI() {
+  if (!window.isAdminUser) return;
+
+  // Admin chip in the nav
+  const navActions = document.querySelector('.nav-actions');
+  if (navActions && !navActions.querySelector('.admin-chip')) {
+    const chip = document.createElement('span');
+    chip.className = 'admin-chip';
+    chip.textContent = 'ADMIN';
+    navActions.insertBefore(chip, navActions.firstChild);
+  }
+
+  // Delete button on every talent card (full-width, below "View Profile")
+  document.querySelectorAll('.talent-card').forEach(card => {
+    if (card.querySelector('.talent-admin-del')) return;
+    const body = card.querySelector('.talent-body') || card;
+    const nameEl = card.querySelector('.talent-name');
+    const name = nameEl ? nameEl.textContent.trim() : 'this freelancer';
+    const btn = document.createElement('button');
+    btn.className = 'talent-admin-del';
+    btn.setAttribute('aria-label', `Delete ${name}`);
+    btn.textContent = 'Delete';
+    // Styled inline so a cached stylesheet can never leave it unstyled
+    btn.style.cssText = "width:100%;padding:10px;margin-top:10px;background:#e5484d;color:#fff;font-size:.85rem;font-weight:600;border:none;border-radius:8px;cursor:pointer;font-family:'DM Sans',sans-serif;transition:all .28s cubic-bezier(.4,0,.2,1);";
+    btn.onmouseover = () => { btn.style.background = '#c93338'; };
+    btn.onmouseout = () => { btn.style.background = '#e5484d'; };
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      deleteFreelancer(card.dataset.email || '', name, card);
+    };
+    body.appendChild(btn);
+  });
+}
+
+async function deleteFreelancer(email, name, card) {
+  if (!confirm(`Delete ${name} from the marketplace?\n\nThis permanently removes their profile and cannot be undone.`)) return;
+
+  let remoteErr = null;
+  if (email) {
+    try {
+      const supabase = await getSupabase();
+      const { error } = await supabase.from('freelancers').delete().eq('email', email);
+      if (error) throw error;
+    } catch (err) {
+      remoteErr = err;
+    }
+  }
+
+  // Remove any local fallback copies too
+  try {
+    const local = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
+    const filtered = local.filter(f => (f.email || '').toLowerCase().trim() !== email.toLowerCase().trim());
+    localStorage.setItem('localFreelancers', JSON.stringify(filtered));
+  } catch (err) { /* ignore corrupt local data */ }
+
+  card.remove();
+
+  if (remoteErr) {
+    console.error('Failed to delete freelancer from Supabase:', remoteErr);
+    alert('Removed from this page, but the online database delete failed.\nMake sure supabase-admin-setup.sql has been run and you are logged in as an admin.');
+  }
 }
 
 /* ── FILTER BUTTONS (visual toggle) ── */
@@ -632,7 +717,13 @@ window.logout = function() {
   localStorage.removeItem('isLoggedIn');
   localStorage.removeItem('userName');
   localStorage.removeItem('userType');
-  window.location.reload();
+  const finish = () => window.location.reload();
+  // Also end the Supabase auth session so admin permissions don't linger
+  if (supabaseClient) {
+    supabaseClient.auth.signOut().then(finish, finish);
+  } else {
+    finish();
+  }
 };
 
 /* ── INIT ON LOAD ── */
@@ -642,6 +733,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Load any registered profiles dynamically
   loadAllDynamicProfiles();
+
+  // Admin mode: check the Supabase admins table for the logged-in email
+  checkAdminStatus().then(isAdmin => {
+    window.isAdminUser = isAdmin;
+    if (isAdmin) applyAdminUI();
+  });
 
   // Dynamic Authentication state in Navigation
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';

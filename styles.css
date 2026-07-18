@@ -264,6 +264,7 @@ img { display:block; }
 .talent-card {
   border:1px solid var(--gray-light); border-radius:var(--radius-lg);
   overflow:hidden; background:#fff; transition:var(--transition);
+  position:relative;
 }
 .talent-card:hover { box-shadow:var(--shadow-md); transform:translateY(-4px); }
 .talent-cover { width:100%; height:160px; object-fit:cover; }
@@ -288,6 +289,23 @@ img { display:block; }
   cursor:pointer; font-family:'DM Sans',sans-serif; transition:var(--transition);
 }
 .talent-cta:hover { background:var(--blue-mid); color:#fff; }
+
+
+/* ─── ADMIN ─── */
+.admin-chip {
+  padding:4px 12px; border-radius:100px;
+  background:var(--blue-pale); color:var(--blue-mid);
+  font-size:.72rem; font-weight:700; letter-spacing:.8px;
+  border:1px solid rgba(0,74,159,.18);
+}
+.talent-admin-del {
+  width:100%; padding:10px; margin-top:10px;
+  background:#e5484d; color:#fff;
+  font-size:.85rem; font-weight:600;
+  border:none; border-radius:8px; cursor:pointer;
+  font-family:'DM Sans',sans-serif; transition:var(--transition);
+}
+.talent-admin-del:hover { background:#c93338; }
 
 
 /* ─── FILTER BAR ─── */
