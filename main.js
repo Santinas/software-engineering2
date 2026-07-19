@@ -231,11 +231,14 @@ async function submitCommissionRequest(btn) {
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
   const f = freelancers[currentFreelancer] || {};
+  // The database only accepts bookings made under the logged-in email,
+  // so prefer the verified account email over the (editable) form field
+  const accountEmail = (localStorage.getItem('userEmail') || '').toLowerCase();
   const commissionData = {
     freelancer_name: currentFreelancer,
     freelancer_email: f.email || null,
     client_name: name,
-    client_email: email.toLowerCase(),
+    client_email: accountEmail || email.toLowerCase(),
     project_type: type,
     project_desc: desc,
     budget: parseInt(budget, 10),
@@ -494,10 +497,13 @@ window.handleFreelancerSubmit = async function(event) {
       portfolioUrls.push(f.dataUrl);
     });
 
+    // The database only accepts profiles created under the student's own
+    // login email, so prefer the verified account email over the form field
+    const accountEmail = (localStorage.getItem('userEmail') || '').toLowerCase();
     const profileData = {
       first_name: firstName,
       last_name: lastName,
-      email: email,
+      email: accountEmail || email,
       program: `${program} (${year})`,
       headline: headline,
       bio: bio,
@@ -1136,20 +1142,69 @@ window.logout = function() {
 document.addEventListener('DOMContentLoaded', () => {
   initFilterBtns();
   initTalentCtas();
-  
+
   // Load any registered profiles dynamically
   loadAllDynamicProfiles();
 
-  // Admin mode: check the Supabase admins table for the logged-in email
+  // Auth-dependent UI (nav, bell, admin, student gating) is driven by the
+  // VERIFIED Supabase session — not by editable localStorage flags
+  initAuthUI();
+
+  // Close modal on backdrop click
+  const modal = document.getElementById('profile-modal');
+  if (modal) {
+    modal.addEventListener('click', function (e) {
+      if (e.target === this) closeModal();
+    });
+  }
+});
+
+/* ── AUTH UI (verified session; localStorage is only a display cache) ── */
+async function initAuthUI() {
+  let user = null;
+  try {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase.auth.getUser();
+    if (!error && data) user = data.user || null;
+  } catch (err) {
+    console.warn('Could not verify auth session:', err);
+  }
+
+  if (user) {
+    // Refresh the cache from the authoritative session
+    localStorage.setItem('isLoggedIn', 'true');
+    localStorage.setItem('userEmail', (user.email || '').toLowerCase());
+    localStorage.setItem('userName', (user.user_metadata && user.user_metadata.full_name) || (user.email || '').split('@')[0]);
+    localStorage.setItem('userType', (user.user_metadata && user.user_metadata.role) || 'client');
+  } else if (localStorage.getItem('isLoggedIn') === 'true') {
+    // Cache claims logged-in but there's no valid session (expired or forged) — wipe it
+    ['isLoggedIn', 'userName', 'userType', 'userEmail'].forEach(k => localStorage.removeItem(k));
+  }
+
+  const isLoggedIn = !!user;
+  const name = localStorage.getItem('userName') || 'User';
+  const navActions = document.querySelector('.nav-actions');
+
+  // "Offer My Services" is for iAcademy students only. Student status is
+  // proven by the VERIFIED login email domain, which cannot be faked
+  // without actually owning an iAcademy account.
+  const isStudent = isLoggedIn && (user.email || '').toLowerCase().endsWith('@iacademy.edu.ph');
+  if (!isStudent) {
+    document.querySelectorAll('.nav-links a[href="offer-services.html"]').forEach(a => {
+      if (a.parentElement) a.parentElement.style.display = 'none';
+    });
+    if (/offer-services\.html$/i.test(window.location.pathname)) {
+      alert('Offering services is for iAcademy students. Please log in with your student account first.');
+      window.location.href = 'login.html';
+      return;
+    }
+  }
+
+  // Admin mode (checked against the verified email)
   checkAdminStatus().then(isAdmin => {
     window.isAdminUser = isAdmin;
     if (isAdmin) applyAdminUI();
   });
-
-  // Dynamic Authentication state in Navigation
-  const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  const name = localStorage.getItem('userName') || 'User';
-  const navActions = document.querySelector('.nav-actions');
 
   if (navActions && isLoggedIn) {
     navActions.innerHTML = `
@@ -1198,12 +1253,4 @@ document.addEventListener('DOMContentLoaded', () => {
       clientEmailInput.value = localStorage.getItem('userEmail') || '';
     }
   }
-
-  // Close modal on backdrop click
-  const modal = document.getElementById('profile-modal');
-  if (modal) {
-    modal.addEventListener('click', function (e) {
-      if (e.target === this) closeModal();
-    });
-  }
-});
+}
