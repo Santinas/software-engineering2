@@ -189,6 +189,8 @@
           <a href="#" onclick="alert('Password recovery features are coming soon. For testing, please use any email and password.')">Forgot Password?</a>
         </div>
 
+        <div id="captcha-mount" style="margin-bottom:20px;display:flex;justify-content:center;"></div>
+
         <button type="submit" class="form-submit">Sign In</button>
       </form>
 
@@ -212,8 +214,31 @@
 
 <script src="main.js"></script>
 <script src="chat.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script>
 <script>
   let currentType = 'client';
+
+  /* ── Cloudflare Turnstile (verified server-side by Supabase Auth) ── */
+  const TURNSTILE_SITE_KEY = '0x4AAAAAAD5LP_lAhAC-QXps';
+  let turnstileToken = '';
+  let turnstileWidgetId = null;
+
+  function onTurnstileLoad() {
+    turnstileWidgetId = turnstile.render('#captcha-mount', {
+      sitekey: TURNSTILE_SITE_KEY,
+      theme: 'light',
+      callback: (token) => { turnstileToken = token; },
+      'expired-callback': () => { turnstileToken = ''; },
+      'error-callback': () => { turnstileToken = ''; }
+    });
+  }
+
+  function resetTurnstile() {
+    turnstileToken = '';
+    if (turnstileWidgetId !== null && window.turnstile) {
+      turnstile.reset(turnstileWidgetId);
+    }
+  }
 
   function switchLoginType(type) {
     currentType = type;
@@ -240,6 +265,11 @@
   async function handleLoginSubmit(event) {
     event.preventDefault();
 
+    if (!turnstileToken) {
+      alert('Please complete the security check first.');
+      return;
+    }
+
     const email = document.getElementById('username-input').value.trim();
     const password = document.getElementById('password-input').value;
     const submitBtn = event.target.querySelector('button[type="submit"]');
@@ -252,7 +282,8 @@
       const supabase = await getSupabase();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: email,
-        password: password
+        password: password,
+        options: { captchaToken: turnstileToken }
       });
 
       if (error) throw error;
@@ -279,6 +310,7 @@
     } catch (err) {
       console.error('Login error:', err);
       alert(err.message || "Invalid email or password. Please try again.");
+      resetTurnstile();
       submitBtn.disabled = false;
       submitBtn.textContent = originalBtnText;
     }

@@ -171,6 +171,8 @@
           <input type="password" id="confirm-password-input" placeholder="Repeat your password" minlength="6" required />
         </div>
 
+        <div id="captcha-mount" style="margin-bottom:20px;display:flex;justify-content:center;"></div>
+
         <button type="submit" class="form-submit" id="signup-btn">Create Account</button>
       </form>
 
@@ -192,8 +194,31 @@
 
 <script src="main.js"></script>
 <script src="chat.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script>
 <script>
   let currentType = 'client';
+
+  /* ── Cloudflare Turnstile (verified server-side by Supabase Auth) ── */
+  const TURNSTILE_SITE_KEY = '0x4AAAAAAD5LP_lAhAC-QXps';
+  let turnstileToken = '';
+  let turnstileWidgetId = null;
+
+  function onTurnstileLoad() {
+    turnstileWidgetId = turnstile.render('#captcha-mount', {
+      sitekey: TURNSTILE_SITE_KEY,
+      theme: 'light',
+      callback: (token) => { turnstileToken = token; },
+      'expired-callback': () => { turnstileToken = ''; },
+      'error-callback': () => { turnstileToken = ''; }
+    });
+  }
+
+  function resetTurnstile() {
+    turnstileToken = '';
+    if (turnstileWidgetId !== null && window.turnstile) {
+      turnstile.reset(turnstileWidgetId);
+    }
+  }
 
   function switchSignupType(type) {
     currentType = type;
@@ -232,6 +257,11 @@
   async function handleSignupSubmit(event) {
     event.preventDefault();
 
+    if (!turnstileToken) {
+      showToast("Please complete the security check first.", true);
+      return;
+    }
+
     const fullName = document.getElementById('fullname-input').value.trim();
     const email = document.getElementById('username-input').value.trim();
     const password = document.getElementById('password-input').value;
@@ -259,6 +289,7 @@
         email: email,
         password: password,
         options: {
+          captchaToken: turnstileToken,
           data: {
             full_name: fullName,
             role: currentType
@@ -288,6 +319,7 @@
     } catch (err) {
       console.error('Signup error:', err);
       showToast(err.message || "Failed to register. Please check credentials or try again.", true);
+      resetTurnstile();
       signupBtn.disabled = false;
       signupBtn.textContent = originalText;
     }
