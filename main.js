@@ -109,9 +109,7 @@ function openProfile(name) {
   ).join('');
 
   const portEl = document.getElementById('modal-portfolio-grid');
-  portEl.innerHTML = f.portfolio.map(src =>
-    `<img src="${src}" alt="portfolio" style="width:100%;height:130px;object-fit:cover;border-radius:10px;" />`
-  ).join('');
+  portEl.innerHTML = f.portfolio.map((src, i) => renderPortfolioItem(src, i)).join('');
 
   // Inject a "Message" button for the live chat (modal markup is duplicated
   // across pages, so adding it here covers every copy)
@@ -141,6 +139,68 @@ function openProfile(name) {
   document.getElementById('profile-modal').style.display = 'block';
   document.body.style.overflow = 'hidden';
 }
+
+/* ── PORTFOLIO GRID RENDERING ── */
+function isImageEntry(src) {
+  if (typeof src !== 'string') return false;
+  if (src.startsWith('data:image/')) return true;
+  if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(src)) return true;
+  if (src.includes('images.unsplash.com')) return true;
+  return false;
+}
+
+function renderPortfolioFileCard(icon, label, i) {
+  return `
+    <div onclick="openPortfolioItem(${i})"
+         style="height:130px;border-radius:10px;border:1.5px solid #eaeef6;background:#f5f7fc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:10px;text-align:center;transition:all .2s;"
+         onmouseover="this.style.background='#e8f0fb';this.style.borderColor='#004a9f'"
+         onmouseout="this.style.background='#f5f7fc';this.style.borderColor='#eaeef6'">
+      <div style="font-size:1.8rem;">${icon}</div>
+      <div style="font-size:.8rem;font-weight:700;color:#004a9f;">${label}</div>
+      <div style="font-size:.7rem;color:#8a94a6;">Click to open</div>
+    </div>`;
+}
+
+function renderPortfolioItem(src, i) {
+  if (isImageEntry(src)) {
+    return `<img src="${src}" alt="portfolio" onclick="openPortfolioItem(${i})" onerror="portfolioImgError(this, ${i})" style="width:100%;height:130px;object-fit:cover;border-radius:10px;cursor:pointer;" />`;
+  }
+  const isPdf = typeof src === 'string' && src.startsWith('data:application/pdf');
+  if (isPdf) return renderPortfolioFileCard('📄', 'PDF Portfolio', i);
+  if (typeof src === 'string' && src.startsWith('data:')) return renderPortfolioFileCard('📎', 'Portfolio File', i);
+  return renderPortfolioFileCard('🔗', 'Portfolio Link', i);
+}
+
+// If an image entry fails to load (corrupt/unsupported), swap it for a file card
+window.portfolioImgError = function (imgEl, i) {
+  const wrap = document.createElement('div');
+  wrap.innerHTML = renderPortfolioFileCard('📎', 'Portfolio File', i);
+  imgEl.replaceWith(wrap.firstElementChild);
+};
+
+window.openPortfolioItem = function (i) {
+  const f = freelancers[currentFreelancer];
+  if (!f || !f.portfolio || !f.portfolio[i]) return;
+  let src = f.portfolio[i];
+  if (src.startsWith('data:')) {
+    // Browsers block opening data: URLs in a new tab — convert to a Blob URL first
+    try {
+      const [meta, b64] = src.split(',');
+      const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'application/octet-stream';
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let j = 0; j < bin.length; j++) bytes[j] = bin.charCodeAt(j);
+      const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('Could not open portfolio file:', err);
+      alert('Sorry, this portfolio file could not be opened.');
+    }
+  } else {
+    if (!/^https?:\/\//i.test(src)) src = 'https://' + src;
+    window.open(src, '_blank', 'noopener');
+  }
+};
 
 function closeModal() {
   document.getElementById('profile-modal').style.display = 'none';
