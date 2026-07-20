@@ -1138,8 +1138,29 @@ window.logout = function() {
   }
 };
 
+/* ── PASSWORD RECOVERY GUARD ──
+   Supabase appends the recovery token to the redirect URL. If its redirect
+   allowlist sends the user to a page other than reset-password.html (e.g.
+   the Site URL / landing page), forward them — token intact — to the reset
+   page so the flow still works. Runs before the Supabase client is created,
+   while the URL hash is still untouched. */
+function redirectRecoveryIfNeeded() {
+  const hash = window.location.hash || '';
+  const search = window.location.search || '';
+  const isRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+  const onResetPage = /reset-password\.html$/i.test(window.location.pathname);
+  if (isRecovery && !onResetPage) {
+    window.location.replace('reset-password.html' + search + hash);
+    return true;
+  }
+  return false;
+}
+
 /* ── INIT ON LOAD ── */
 document.addEventListener('DOMContentLoaded', () => {
+  // Handle a password-recovery landing before anything else touches the URL
+  if (redirectRecoveryIfNeeded()) return;
+
   initFilterBtns();
   initTalentCtas();
 
