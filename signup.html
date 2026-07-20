@@ -171,6 +171,15 @@
           <input type="password" id="confirm-password-input" placeholder="Repeat your password" minlength="6" required />
         </div>
 
+        <div style="display:flex;align-items:flex-start;gap:9px;margin-bottom:18px;font-size:.85rem;color:var(--gray-dark);">
+          <input type="checkbox" id="terms-agree" style="accent-color:var(--blue-mid);margin-top:3px;flex-shrink:0;width:16px;height:16px;cursor:pointer;" />
+          <label for="terms-agree" style="cursor:pointer;line-height:1.5;">
+            I have read and agree to the
+            <a href="#" onclick="openTermsModal(event)" style="color:var(--blue-mid);font-weight:600;">Terms &amp; Conditions</a>
+            and <a href="#" onclick="openTermsModal(event)" style="color:var(--blue-mid);font-weight:600;">Privacy Policy</a>.
+          </label>
+        </div>
+
         <div id="captcha-mount" style="margin-bottom:20px;display:flex;justify-content:center;"></div>
 
         <button type="submit" class="form-submit" id="signup-btn">Create Account</button>
@@ -198,6 +207,46 @@
       <p style="text-align: center; margin-top: 28px; font-size: 0.9rem; color: var(--gray-mid);">
         Already have an account? <a href="login.html" style="color: var(--blue-mid); font-weight: 600;">Sign In here</a>
       </p>
+    </div>
+  </div>
+</div>
+
+<!-- ── TERMS & CONDITIONS MODAL ── -->
+<div id="terms-modal" style="display:none;position:fixed;inset:0;z-index:1200;background:rgba(10,20,50,.55);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;">
+  <div style="background:#fff;border-radius:20px;max-width:580px;width:100%;max-height:86vh;display:flex;flex-direction:column;box-shadow:0 40px 100px rgba(0,30,100,.25);">
+    <div style="padding:22px 28px;border-bottom:1px solid var(--gray-light);display:flex;align-items:center;justify-content:space-between;">
+      <h3 style="font-family:'Playfair Display',serif;font-size:1.4rem;color:var(--text);">Terms &amp; Conditions</h3>
+      <button onclick="closeTermsModal()" style="width:32px;height:32px;border-radius:50%;background:#f1f5f9;border:none;cursor:pointer;font-size:1rem;color:#1e293b;line-height:1;display:flex;align-items:center;justify-content:center;">✕</button>
+    </div>
+    <div style="padding:22px 28px;overflow-y:auto;font-size:.88rem;color:var(--gray-dark);line-height:1.7;">
+      <p style="color:var(--gray-mid);margin-bottom:16px;">Last updated: July 2026. Welcome to iCreate, the official student freelancing platform of iAcademy. By creating an account you agree to the following terms.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">1. Eligibility</h4>
+      <p>To offer services as talent, you must be a currently enrolled iAcademy student and register using your official <strong>@iacademy.edu.ph</strong> email. Clients may register with any valid email address. You must provide accurate information when creating your account.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">2. Accounts &amp; Security</h4>
+      <p>You are responsible for keeping your password confidential and for all activity under your account. Notify us immediately of any unauthorized use. One person may not maintain duplicate or impersonating accounts.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">3. Commissions &amp; Payments</h4>
+      <p>iCreate connects clients with student freelancers. Commission terms, deliverables, and payment amounts are agreed between the two parties. Payment proof (e.g. GCash screenshots) submitted through the platform must be genuine. iCreate is not a party to, and is not liable for, disputes arising from individual commissions.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">4. Acceptable Conduct</h4>
+      <p>You agree not to post unlawful, fraudulent, harassing, or infringing content, and not to misuse the chat, portfolio, or commission features. iCreate may suspend or remove accounts that violate these terms.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">5. Content &amp; Portfolio</h4>
+      <p>You retain ownership of the portfolio work you upload, and grant iCreate permission to display it on your public profile for the purpose of showcasing your services. Do not upload work you do not have the rights to share.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">6. Privacy</h4>
+      <p>We collect the information you provide (name, email, profile details, and messages) to operate the platform. Your email is used for authentication and account recovery. We do not sell your personal data. Chat messages and commission details are visible only to the parties involved and platform administrators.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">7. Disclaimer</h4>
+      <p>iCreate is a student initiative provided "as is" without warranties. We are not responsible for the quality, safety, or legality of services arranged through the platform.</p>
+
+      <h4 style="color:var(--text);font-size:.95rem;margin:16px 0 6px;">8. Changes</h4>
+      <p>We may update these terms from time to time. Continued use of iCreate after changes take effect constitutes acceptance of the revised terms.</p>
+    </div>
+    <div style="padding:16px 28px;border-top:1px solid var(--gray-light);">
+      <button onclick="agreeAndCloseTerms()" class="form-submit" style="margin-top:0;">I Understand &amp; Agree</button>
     </div>
   </div>
 </div>
@@ -240,6 +289,10 @@
   }
 
   async function loginWithGoogle(btn) {
+    if (!document.getElementById('terms-agree').checked) {
+      showToast("Please agree to the Terms & Conditions to create an account.", true);
+      return;
+    }
     try {
       if (btn) { btn.disabled = true; btn.style.opacity = '.7'; }
       const supabase = await getSupabase();
@@ -279,6 +332,19 @@
     }
   }
 
+  /* ── TERMS & CONDITIONS MODAL ── */
+  function openTermsModal(event) {
+    if (event) event.preventDefault();
+    document.getElementById('terms-modal').style.display = 'flex';
+  }
+  function closeTermsModal() {
+    document.getElementById('terms-modal').style.display = 'none';
+  }
+  function agreeAndCloseTerms() {
+    document.getElementById('terms-agree').checked = true;
+    closeTermsModal();
+  }
+
   function showToast(message, isError = false) {
     const toast = document.getElementById('toast-message');
     toast.textContent = message;
@@ -293,6 +359,11 @@
 
   async function handleSignupSubmit(event) {
     event.preventDefault();
+
+    if (!document.getElementById('terms-agree').checked) {
+      showToast("Please agree to the Terms & Conditions to create an account.", true);
+      return;
+    }
 
     if (!turnstileToken) {
       showToast("Please complete the security check first.", true);
