@@ -325,8 +325,25 @@ async function getSupabase() {
     }
   }
 
-  supabaseClient = window.supabase.createClient(url, config.supabaseAnonKey);
+  // "Remember me": when unchecked, keep the session only for this browser
+  // session (sessionStorage clears on close); otherwise persist it.
+  const remember = localStorage.getItem('rememberMe');
+  const authStorage = (remember === 'false') ? window.sessionStorage : window.localStorage;
+
+  supabaseClient = window.supabase.createClient(url, config.supabaseAnonKey, {
+    auth: {
+      storage: authStorage,
+      persistSession: true,
+      autoRefreshToken: true
+    }
+  });
   return supabaseClient;
+}
+
+// Force the client to be rebuilt (e.g. after the "Remember me" choice changes,
+// so the new session lands in the right storage)
+window.resetSupabaseClient = function () {
+  supabaseClient = null;
 }
 
 /* ── PORTFOLIO FILE UPLOAD & DRAG & DROP ── */
@@ -1193,10 +1210,16 @@ async function initAuthUI() {
 
   if (user) {
     // Refresh the cache from the authoritative session
+    const verifiedEmail = (user.email || '').toLowerCase();
+    // Role is anchored to the verified email domain (so students who sign in
+    // with Google are recognized too); metadata is only a fallback.
+    const role = verifiedEmail.endsWith('@iacademy.edu.ph')
+      ? 'student'
+      : ((user.user_metadata && user.user_metadata.role) || 'client');
     localStorage.setItem('isLoggedIn', 'true');
-    localStorage.setItem('userEmail', (user.email || '').toLowerCase());
-    localStorage.setItem('userName', (user.user_metadata && user.user_metadata.full_name) || (user.email || '').split('@')[0]);
-    localStorage.setItem('userType', (user.user_metadata && user.user_metadata.role) || 'client');
+    localStorage.setItem('userEmail', verifiedEmail);
+    localStorage.setItem('userName', (user.user_metadata && user.user_metadata.full_name) || verifiedEmail.split('@')[0]);
+    localStorage.setItem('userType', role);
   } else if (localStorage.getItem('isLoggedIn') === 'true') {
     // Cache claims logged-in but there's no valid session (expired or forged) — wipe it
     ['isLoggedIn', 'userName', 'userType', 'userEmail'].forEach(k => localStorage.removeItem(k));

@@ -247,7 +247,7 @@
   </div>
 </footer>
 
-<script src="main.js?v=9"></script>
+<script src="main.js?v=10"></script>
 <script src="chat.js?v=5"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script>
 <script>
@@ -355,6 +355,9 @@
   async function loginWithGoogle(btn) {
     try {
       if (btn) { btn.disabled = true; btn.style.opacity = '.7'; }
+      const remember = document.getElementById('remember-me').checked;
+      localStorage.setItem('rememberMe', remember ? 'true' : 'false');
+      if (window.resetSupabaseClient) window.resetSupabaseClient();
       const supabase = await getSupabase();
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -404,7 +407,13 @@
     const password = document.getElementById('password-input').value;
     const submitBtn = event.target.querySelector('button[type="submit"]');
     const originalBtnText = submitBtn.textContent;
-    
+
+    // Apply the "Remember me" choice before the client is (re)built so the
+    // session lands in the right storage (persistent vs. this-session-only)
+    const remember = document.getElementById('remember-me').checked;
+    localStorage.setItem('rememberMe', remember ? 'true' : 'false');
+    if (window.resetSupabaseClient) window.resetSupabaseClient();
+
     submitBtn.disabled = true;
     submitBtn.textContent = 'Signing In...';
 

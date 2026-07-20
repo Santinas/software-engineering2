@@ -211,7 +211,7 @@
   </div>
 </footer>
 
-<script src="main.js?v=9"></script>
+<script src="main.js?v=10"></script>
 <script src="chat.js?v=5"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad" async defer></script>
 <script>
@@ -355,6 +355,12 @@
 
     } catch (err) {
       console.error('Signup error:', err);
+      const msg = (err && err.message || '').toLowerCase();
+      if (err && (err.code === 'user_already_exists' || msg.includes('already registered') || msg.includes('already been registered'))) {
+        showToast("This email is already registered. Please log in instead.", true);
+        setTimeout(() => { window.location.href = 'login.html'; }, 2200);
+        return;
+      }
       showToast(err.message || "Failed to register. Please check credentials or try again.", true);
       resetTurnstile();
       signupBtn.disabled = false;
