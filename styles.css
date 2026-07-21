@@ -522,7 +522,7 @@ footer {
 }
 .footer-inner {
   max-width:1200px; margin:0 auto;
-  display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:48px; margin-bottom:52px;
+  display:grid; grid-template-columns:2fr 1fr 1fr; gap:48px; margin-bottom:52px;
 }
 .footer-brand-name {
   font-size:1.3rem; font-weight:700; color:var(--blue-deep); margin-bottom:10px;
