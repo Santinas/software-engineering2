@@ -124,11 +124,11 @@ window.updateProfile = async function(event) {
             linkedin: linkedin || null,
             portfolio: JSON.stringify(portfolioUrls) // Column is plain text, so store as a JSON string
         };
-
+        const supabase = await getSupabase();
         // Save to Supabase
         let supabaseSuccess = false;
         try {
-            const supabase = await getSupabase();
+            
             const { data, error } = await supabase
             .from('freelancers')
             .update([profileData])
@@ -136,10 +136,21 @@ window.updateProfile = async function(event) {
             if (error) throw error;
             supabaseSuccess = true;
             console.log('Freelancer profile saved successfully to Supabase:', data);
+
+            
         } catch (supabaseErr) {
-            console.warn('Failed to insert into Supabase freelancers table. Saving locally.', supabaseErr);
+            console.warn('Failed to update Supabase freelancers table.', supabaseErr);
         }
 
+        try {
+            const { data, error } = await supabase.auth.updateUser({
+                data: { 'Display name': `${firstName} ${lastName}` }
+            })
+        }  catch (supabaseErr) {
+            console.warn('Failed to update user profile.', supabaseErr);
+        }
+        
+        
     //   // Always save to localStorage as fallback
     //   const localFreelancers = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
     //   localFreelancers.push(profileData);
