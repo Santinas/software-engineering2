@@ -233,6 +233,15 @@ async function submitCommissionRequest(btn) {
     return;
   }
 
+  if (deadline) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const chosen = new Date(deadline + 'T00:00:00');
+    if (isNaN(chosen.getTime()) || chosen < today) {
+      alert('Please choose a deadline that is today or in the future.');
+      return;
+    }
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
   const f = freelancers[currentFreelancer] || {};
@@ -1239,6 +1248,14 @@ function redirectRecoveryIfNeeded() {
   return false;
 }
 
+// Today's date as YYYY-MM-DD in the user's local timezone
+function todayISODate() {
+  const d = new Date();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${mm}-${dd}`;
+}
+
 /* ── POSITIVE-AMOUNT NUMERIC INPUTS ──
    Restrict a field to a positive number: digits 0-9 with an optional
    single decimal point (max 2 decimal places). No negatives, exponents,
@@ -1277,6 +1294,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // Positive amounts (decimals allowed) in rate/budget fields
   enforceDecimalInput(document.getElementById('signup-rate'));
   enforceDecimalInput(document.getElementById('project-budget'));
+
+  // Commission deadline cannot be in the past (blocks the picker and manual entry)
+  const deadlineInput = document.getElementById('project-deadline');
+  if (deadlineInput) deadlineInput.min = todayISODate();
 
   initFilterBtns();
   initTalentCtas();
