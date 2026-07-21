@@ -21,7 +21,8 @@
     conversations: [],     // derived summaries
     talents: null,         // cached freelancer directory
     pollTimer: null,
-    lastSignature: ''
+    lastSignature: '',
+    pendingAttachment: null // { url, type, name } queued to send
   };
 
   /* ── HELPERS ── */
@@ -34,7 +35,7 @@
   function convIdFor(a, b) { return [normEmail(a), normEmail(b)].sort().join('|'); }
   // Key by epoch ms (not the raw string) — Supabase returns timestamps in a
   // different ISO format than the browser writes, which must not break dedupe
-  function msgKey(m) { return `${normEmail(m.sender_email)}|${new Date(m.created_at).getTime()}|${m.content}`; }
+  function msgKey(m) { return `${normEmail(m.sender_email)}|${new Date(m.created_at).getTime()}|${m.content}|${m.attachment_name || ''}`; }
 
   function fmtTime(iso) {
     const d = new Date(iso);
@@ -218,6 +219,43 @@
   .icc-send:disabled { opacity:.5; cursor:default; transform:none; }
   .icc-send svg { width:18px; height:18px; }
 
+  /* attach button */
+  .icc-attach {
+    width:42px; height:42px; border-radius:12px; cursor:pointer; flex-shrink:0;
+    background:var(--off-white,#f5f7fc); color:var(--blue-mid,#004a9f);
+    border:1.5px solid var(--gray-light,#eaeef6); transition:all .2s;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .icc-attach:hover { background:var(--blue-pale,#e8f0fb); border-color:var(--blue-mid,#004a9f); }
+  .icc-attach svg { width:18px; height:18px; }
+
+  /* pending-attachment preview above the composer */
+  .icc-attach-preview {
+    display:none; align-items:center; gap:10px; padding:8px 12px; margin:0 14px;
+    background:var(--blue-pale,#e8f0fb); border-radius:10px; font-size:.8rem; flex-shrink:0;
+  }
+  .icc-attach-preview.show { display:flex; }
+  .icc-attach-preview img { width:38px; height:38px; object-fit:cover; border-radius:6px; flex-shrink:0; }
+  .icc-ap-icon { font-size:1.5rem; }
+  .icc-ap-name { flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text,#1c2033); font-weight:600; }
+  .icc-ap-remove { background:none; border:none; color:#e5484d; cursor:pointer; font-size:1.1rem; line-height:1; padding:2px 6px; }
+
+  /* attachments inside message bubbles */
+  .icc-msg-img { max-width:210px; max-height:220px; border-radius:12px; cursor:pointer; display:block; }
+  .icc-file-card {
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:12px;
+    text-decoration:none; max-width:230px;
+  }
+  .icc-msg.mine .icc-file-card { background:rgba(255,255,255,.2); color:#fff; }
+  .icc-msg.theirs .icc-file-card {
+    background:#fff; border:1px solid var(--gray-light,#eaeef6); color:var(--text,#1c2033);
+    box-shadow:0 2px 8px rgba(0,60,160,.05);
+  }
+  .icc-file-ico { font-size:1.5rem; flex-shrink:0; }
+  .icc-file-meta { min-width:0; }
+  .icc-file-name { font-size:.82rem; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .icc-file-sub { font-size:.7rem; opacity:.8; }
+
   @media (max-width:480px) {
     .icc-panel { right:0; bottom:0; width:100%; max-width:100%; height:100%; border-radius:0; }
     .icc-fab { right:16px; bottom:16px; }
@@ -250,7 +288,19 @@
           <button class="icc-iconbtn" id="icc-close" title="Close">✕</button>
         </div>
         <div class="icc-body" id="icc-body"></div>
+        <div class="icc-attach-preview" id="icc-attach-preview">
+          <img id="icc-ap-img" alt="" style="display:none;" />
+          <span class="icc-ap-icon" id="icc-ap-icon" style="display:none;">📄</span>
+          <span class="icc-ap-name" id="icc-ap-name"></span>
+          <button class="icc-ap-remove" id="icc-ap-remove" title="Remove attachment">✕</button>
+        </div>
         <div class="icc-foot" id="icc-foot">
+          <input type="file" id="icc-file-input" accept="image/*,.pdf,.doc,.docx,.txt,.zip" style="display:none" />
+          <button class="icc-attach" id="icc-attach" aria-label="Attach a file or photo" title="Attach a file or photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+            </svg>
+          </button>
           <textarea class="icc-input" id="icc-input" rows="1" placeholder="Type a message…"></textarea>
           <button class="icc-send" id="icc-send" aria-label="Send">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -275,7 +325,98 @@
       input.style.height = 'auto';
       input.style.height = Math.min(input.scrollHeight, 110) + 'px';
     });
+
+    // Attachments
+    const fileInput = document.getElementById('icc-file-input');
+    document.getElementById('icc-attach').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => handleAttachSelect(fileInput));
+    document.getElementById('icc-ap-remove').addEventListener('click', clearAttachment);
   }
+
+  /* ── ATTACHMENTS ── */
+  const MAX_ATTACHMENT = 3 * 1024 * 1024; // 3 MB
+
+  async function handleAttachSelect(fileInput) {
+    const file = fileInput.files && fileInput.files[0];
+    fileInput.value = ''; // allow re-selecting the same file later
+    if (!file) return;
+    if (file.size > MAX_ATTACHMENT) {
+      alert('That file is too large. Maximum size is 3 MB.');
+      return;
+    }
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+      state.pendingAttachment = {
+        url: dataUrl,
+        type: file.type || 'application/octet-stream',
+        name: file.name
+      };
+      showAttachPreview();
+      const input = document.getElementById('icc-input');
+      if (input) input.focus();
+    } catch (err) {
+      console.error('Could not read the attachment:', err);
+      alert('Sorry, that file could not be attached.');
+    }
+  }
+
+  function showAttachPreview() {
+    const wrap = document.getElementById('icc-attach-preview');
+    const img = document.getElementById('icc-ap-img');
+    const icon = document.getElementById('icc-ap-icon');
+    const name = document.getElementById('icc-ap-name');
+    const a = state.pendingAttachment;
+    if (!wrap) return;
+    if (!a) { wrap.classList.remove('show'); return; }
+    if ((a.type || '').startsWith('image/')) {
+      img.src = a.url; img.style.display = 'block'; icon.style.display = 'none';
+    } else {
+      img.style.display = 'none'; icon.style.display = 'inline';
+    }
+    name.textContent = a.name;
+    wrap.classList.add('show');
+  }
+
+  function clearAttachment() {
+    state.pendingAttachment = null;
+    const wrap = document.getElementById('icc-attach-preview');
+    if (wrap) wrap.classList.remove('show');
+  }
+
+  function attachmentHtml(m) {
+    if (!m.attachment_url) return '';
+    if ((m.attachment_type || '').startsWith('image/')) {
+      return `<img class="icc-msg-img" src="${m.attachment_url}" alt="${esc(m.attachment_name || 'image')}" onclick="window.iccOpenImage(this)" />`;
+    }
+    return `<a class="icc-file-card" href="${m.attachment_url}" download="${esc(m.attachment_name || 'file')}">
+      <span class="icc-file-ico">📄</span>
+      <span class="icc-file-meta">
+        <span class="icc-file-name">${esc(m.attachment_name || 'Download file')}</span>
+        <span class="icc-file-sub">Tap to download</span>
+      </span>
+    </a>`;
+  }
+
+  // Open an image attachment full-size in a new tab (data URL → blob)
+  window.iccOpenImage = function (imgEl) {
+    const src = imgEl.src;
+    try {
+      const [meta, b64] = src.split(',');
+      const mime = (meta.match(/data:([^;]+)/) || [])[1] || 'image/png';
+      const bin = atob(b64);
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+      window.open(url, '_blank');
+    } catch (err) {
+      window.open(src, '_blank');
+    }
+  };
 
   /* ── DATA LAYER ── */
   async function fetchRemoteMine() {
@@ -330,7 +471,11 @@
       let c = map.get(id);
       if (!c) { c = { id, otherEmail, otherName, lastMessage: '', lastAt: '', unread: 0 }; map.set(id, c); }
       if (otherIsSender && m.sender_name) c.otherName = m.sender_name;
-      c.lastMessage = (normEmail(m.sender_email) === me ? 'You: ' : '') + m.content;
+      let preview = m.content;
+      if (!preview && m.attachment_url) {
+        preview = (m.attachment_type || '').startsWith('image/') ? '📷 Photo' : '📎 ' + (m.attachment_name || 'File');
+      }
+      c.lastMessage = (normEmail(m.sender_email) === me ? 'You: ' : '') + preview;
       c.lastAt = m.created_at;
       if (otherIsSender && (!reads[id] || new Date(m.created_at) > new Date(reads[id]))) c.unread++;
     });
@@ -562,9 +707,12 @@
           parts.push(`<div class="icc-day">${today ? 'Today' : d.toLocaleDateString([], { month: 'long', day: 'numeric' })}</div>`);
         }
         const mine = normEmail(m.sender_email) === state.me.email;
+        const attHtml = attachmentHtml(m);
+        const textHtml = m.content ? `<div class="icc-bubble">${esc(m.content)}</div>` : '';
         parts.push(`
           <div class="icc-msg ${mine ? 'mine' : 'theirs'}">
-            <div class="icc-bubble">${esc(m.content)}</div>
+            ${attHtml}
+            ${textHtml}
             <div class="icc-msg-time">${d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}</div>
           </div>`);
       });
@@ -578,6 +726,7 @@
   }
 
   function openThread(name, email) {
+    clearAttachment(); // don't carry a queued file between conversations
     state.activeConv = {
       id: convIdFor(state.me.email, email),
       otherEmail: normEmail(email),
@@ -591,7 +740,8 @@
   async function handleSend() {
     const input = document.getElementById('icc-input');
     const text = input.value.trim();
-    if (!text || !state.activeConv || !state.me) return;
+    const att = state.pendingAttachment;
+    if ((!text && !att) || !state.activeConv || !state.me) return;
     const conv = state.activeConv;
     const msg = {
       conversation_id: conv.id,
@@ -602,8 +752,14 @@
       content: text,
       created_at: new Date().toISOString()
     };
+    if (att) {
+      msg.attachment_url = att.url;
+      msg.attachment_type = att.type;
+      msg.attachment_name = att.name;
+    }
     input.value = '';
     input.style.height = 'auto';
+    clearAttachment();
 
     // optimistic render
     state.allMessages.push(msg);
