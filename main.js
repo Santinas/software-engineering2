@@ -1253,11 +1253,8 @@ function initTalentCtas() {
 
 /* ── GLOBAL LOGOUT FUNCTION ── */
 window.logout = function() {
-  localStorage.removeItem('isLoggedIn');
-  localStorage.removeItem('userName');
-  localStorage.removeItem('userType');
-  localStorage.removeItem('userEmail');
-  const finish = () => window.location.reload();
+  localStorage.clear();
+  const finish = () => window.location.href = 'index.html';
   // Also end the Supabase auth session so admin permissions don't linger
   if (supabaseClient) {
     supabaseClient.auth.signOut().then(finish, finish);
