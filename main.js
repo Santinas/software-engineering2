@@ -73,13 +73,30 @@ window.getInitials = getInitials;
 window.generateInitialsAvatar = generateInitialsAvatar;
 window.generateCoverBanner = generateCoverBanner;
 
+//get completed commissions using freelancer email
+//TODO: currently this returns accepte commissions as there is no completed status implemented.
+async function getCompletedCommissions(freelancerEmail) {
+  try {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase
+        .from('commissions')
+        .select('project_type, project_desc')
+        .eq('freelancer_email', freelancerEmail)
+        .eq('status', 'accepted');
+    return { data, error };
+  } catch (error) {
+    console.error('Error fetching completed commissions:', error);
+    throw error;
+  }
+}
+
 /* ── FREELANCER DATA ── */
 const freelancers = {};
 
 let currentFreelancer = '';
 
 /* ── PROFILE MODAL ── */
-function openProfile(name) {
+async function openProfile(name) {
   const f = freelancers[name];
   if (!f) return;
   currentFreelancer = name;
@@ -110,7 +127,13 @@ function openProfile(name) {
 
   const portEl = document.getElementById('modal-portfolio-grid');
   portEl.innerHTML = f.portfolio.map((src, i) => renderPortfolioItem(src, i)).join('');
+  console.log(f.portfolio);
+  const comms = await getCompletedCommissions(f.email);
+  console.log(comms.data);
 
+  const commEl = document.getElementById('modal-commission-grid');
+  commEl.innerHTML = comms.data.map((c, i) => renderCommissionCard('✔️', c.project_type, c.project_desc)).join(''); 
+  
   // Inject a "Message" button for the live chat (modal markup is duplicated
   // across pages, so adding it here covers every copy)
   const overviewPanel = document.getElementById('panel-overview');
@@ -147,6 +170,17 @@ function isImageEntry(src) {
   if (/\.(png|jpe?g|gif|webp|bmp|svg)(\?|$)/i.test(src)) return true;
   if (src.includes('images.unsplash.com')) return true;
   return false;
+}
+function renderCommissionCard(icon, label, type) {
+  return `
+    <div
+         style="height:130px;border-radius:10px;border:1.5px solid #eaeef6;background:#f5f7fc;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;padding:10px;text-align:center;transition:all .2s;"
+         onmouseover="this.style.background='#e8f0fb';this.style.borderColor='#004a9f'"
+         onmouseout="this.style.background='#f5f7fc';this.style.borderColor='#eaeef6'">
+      <div style="font-size:1.8rem;">${icon}</div>
+      <div style="font-size:.8rem;font-weight:700;color:#004a9f;">${label}</div>
+      <div style="font-size:.7rem;color:#8a94a6;">${type}</div>
+    </div>`;
 }
 
 function renderPortfolioFileCard(icon, label, i) {
@@ -639,7 +673,7 @@ window.handleFreelancerSubmit = async function(event) {
 };
 
 /* ── RENDER FREELANCER CARD ── */
-function renderFreelancerCard(f, grid, pageCategory) {
+async function renderFreelancerCard(f, grid, pageCategory) {
   // Check if matches category
   const prog = (f.program || f.headline || '').toLowerCase();
   const skills = (f.skills || []).map(s => s.toLowerCase());
@@ -669,7 +703,8 @@ function renderFreelancerCard(f, grid, pageCategory) {
       portfolioArr = [f.portfolio]; // fallback for old rows saved as a plain string
     }
   }
-
+  const comms = await getCompletedCommissions(f.email);
+  const completedProjects = comms.data.length || 0;
   // Register in global object so openProfile works!
   freelancers[fullName] = {
     email: f.email || '',
@@ -678,7 +713,7 @@ function renderFreelancerCard(f, grid, pageCategory) {
     cover: f.cover && !f.cover.includes('unsplash.com') ? f.cover : generateCoverBanner(fullName),
     bio: f.bio,
     rate: `₱${f.rate} / hour`,
-    projects: '0 completed',
+    projects: `${completedProjects} completed`,
     skills: f.skills || [],
     portfolio: portfolioArr.length > 0 ? portfolioArr : ['https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=400&q=70']
   };
@@ -1316,6 +1351,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === this) closeModal();
     });
   }
+
+  showEditProfile();
 });
 
 /* ── AUTH UI (verified session; localStorage is only a display cache) ── */
@@ -1425,4 +1462,26 @@ async function initAuthUI() {
       clientEmailInput.value = localStorage.getItem('userEmail') || '';
     }
   }
+}
+
+async function showEditProfile() {
+    const supabase = await getSupabase();
+    const user = localStorage.getItem("userEmail");
+    const navbar = document.getElementsByClassName('nav-links');
+    const { data, error } = await supabase
+        .from('freelancers')
+        .select('email');
+    for (const freelancerEmail in data){
+        if (user.match(freelancerEmail)){
+            navbar[0].innerHTML =
+                `
+                <li><a href="index.html">Home</a></li>
+                <li><a href="find-talent.html">Find Talent</a></li>
+                <li><a href="edit-profile.html">Edit Profile</a></li>
+                <li><a href="index.html#how">How it Works</a></li>
+                <li><a href="index.html#about">About</a></li>
+                `;
+            return    
+        }
+    } 
 }
