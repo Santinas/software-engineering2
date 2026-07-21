@@ -127,9 +127,7 @@ async function openProfile(name) {
 
   const portEl = document.getElementById('modal-portfolio-grid');
   portEl.innerHTML = f.portfolio.map((src, i) => renderPortfolioItem(src, i)).join('');
-  console.log(f.portfolio);
   const comms = await getCompletedCommissions(f.email);
-  console.log(comms.data);
 
   const commEl = document.getElementById('modal-commission-grid');
   commEl.innerHTML = comms.data.map((c, i) => renderCommissionCard('✔️', c.project_type, c.project_desc)).join(''); 
