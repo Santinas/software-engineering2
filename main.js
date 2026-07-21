@@ -228,6 +228,11 @@ async function submitCommissionRequest(btn) {
     return;
   }
 
+  if (!/^\d+(\.\d{1,2})?$/.test(budget) || parseFloat(budget) <= 0) {
+    alert('Please enter a valid budget amount (a number greater than 0).');
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = 'Submitting…'; }
 
   const f = freelancers[currentFreelancer] || {};
@@ -241,7 +246,7 @@ async function submitCommissionRequest(btn) {
     client_email: accountEmail || email.toLowerCase(),
     project_type: type,
     project_desc: desc,
-    budget: parseInt(budget, 10),
+    budget: parseFloat(budget),
     deadline: deadline || null
   };
 
@@ -469,9 +474,53 @@ window.removeSelectedFile = function(index) {
 };
 
 /* ── SUBMIT FREELANCER WITH SUPABASE ── */
+// Has this email already registered a freelancer profile?
+// Checks Supabase first, then the local fallback list.
+async function hasExistingFreelancerProfile(email) {
+  const target = (email || '').toLowerCase().trim();
+  if (!target) return false;
+  try {
+    const supabase = await getSupabase();
+    const { data, error } = await supabase
+      .from('freelancers')
+      .select('email')
+      .ilike('email', target)
+      .limit(1);
+    if (!error && data && data.length) return true;
+  } catch (err) {
+    console.warn('Could not check for an existing freelancer profile.', err);
+  }
+  try {
+    const local = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
+    if (local.some(f => (f.email || '').toLowerCase().trim() === target)) return true;
+  } catch (err) { /* ignore corrupt local data */ }
+  return false;
+}
+
+// Replace the freelancer form with a "you already have a profile" notice
+function lockFreelancerForm() {
+  const btn = document.getElementById('signup-submit-btn');
+  const form = btn ? btn.closest('form') : null;
+  const card = document.querySelector('.signup-card') || (form && form.parentElement);
+  if (!card) {
+    if (btn) { btn.disabled = true; btn.textContent = 'Profile Already Submitted'; }
+    return;
+  }
+  card.innerHTML = `
+    <div style="text-align:center;padding:20px 10px;">
+      <div style="font-size:3rem;margin-bottom:14px;">✅</div>
+      <h2 style="font-family:'Playfair Display',serif;font-size:1.6rem;color:var(--text);margin-bottom:10px;">You're already registered</h2>
+      <p style="color:var(--gray-mid);font-size:.95rem;max-width:400px;margin:0 auto 26px;line-height:1.6;">
+        You've already submitted a freelancer profile. Only one profile is allowed per account.
+        You can view your profile on the marketplace.
+      </p>
+      <a href="find-talent.html"><button class="form-submit" style="max-width:260px;margin:0 auto;">Go to Find Talent</button></a>
+    </div>`;
+}
+
 window.handleFreelancerSubmit = async function(event) {
   event.preventDefault();
-  
+
   const submitBtn = document.getElementById('signup-submit-btn');
   if (!submitBtn) return;
   const originalText = submitBtn.textContent;
@@ -479,6 +528,16 @@ window.handleFreelancerSubmit = async function(event) {
   submitBtn.textContent = 'Submitting Profile...';
 
   try {
+    // One profile per account — block a second submission
+    const myEmail = (localStorage.getItem('userEmail') || document.getElementById('signup-email').value || '').toLowerCase().trim();
+    if (await hasExistingFreelancerProfile(myEmail)) {
+      alert('You have already submitted a freelancer profile. Only one profile is allowed per account.');
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Profile Already Submitted';
+      window.location.href = 'find-talent.html';
+      return;
+    }
+
     const firstName = document.getElementById('signup-first-name').value.trim();
     const lastName = document.getElementById('signup-last-name').value.trim();
     const email = document.getElementById('signup-email').value.trim();
@@ -494,6 +553,13 @@ window.handleFreelancerSubmit = async function(event) {
 
     if (!firstName || !lastName || !email || !program || !year || !headline || !bio || !rate || !mobile || !location) {
       alert('Please fill in all required fields.');
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText;
+      return;
+    }
+
+    if (!/^\d+(\.\d{1,2})?$/.test(rate) || parseFloat(rate) <= 0) {
+      alert('Please enter a valid starting rate (a number greater than 0).');
       submitBtn.disabled = false;
       submitBtn.textContent = originalText;
       return;
@@ -525,7 +591,7 @@ window.handleFreelancerSubmit = async function(event) {
       headline: headline,
       bio: bio,
       skills: selectedSkills,
-      rate: parseInt(rate, 10),
+      rate: parseFloat(rate),
       mobile: mobile,
       location: location,
       linkedin: linkedin || null,
@@ -1173,10 +1239,44 @@ function redirectRecoveryIfNeeded() {
   return false;
 }
 
+/* ── POSITIVE-AMOUNT NUMERIC INPUTS ──
+   Restrict a field to a positive number: digits 0-9 with an optional
+   single decimal point (max 2 decimal places). No negatives, exponents,
+   commas, or other characters. */
+function enforceDecimalInput(input) {
+  if (!input) return;
+  // Use a text field so mid-typing values (e.g. "2.") stay reliably readable;
+  // inputmode keeps a numeric keypad on mobile.
+  input.type = 'text';
+  input.setAttribute('inputmode', 'decimal');
+
+  const clean = () => {
+    let v = input.value.replace(/[^0-9.]/g, '');       // digits + dots only
+    const firstDot = v.indexOf('.');
+    if (firstDot !== -1) {
+      // keep only the first dot, and at most 2 digits after it
+      const intPart = v.slice(0, firstDot);
+      let decPart = v.slice(firstDot + 1).replace(/\./g, '').slice(0, 2);
+      v = intPart + '.' + decPart;
+    }
+    if (input.value !== v) input.value = v;
+  };
+  // Block characters a number field would otherwise allow (e, E, +, -, ,)
+  input.addEventListener('keydown', (e) => {
+    if (['e', 'E', '+', '-', ','].includes(e.key)) e.preventDefault();
+  });
+  input.addEventListener('input', clean);
+  input.addEventListener('paste', () => setTimeout(clean, 0));
+}
+
 /* ── INIT ON LOAD ── */
 document.addEventListener('DOMContentLoaded', () => {
   // Handle a password-recovery landing before anything else touches the URL
   if (redirectRecoveryIfNeeded()) return;
+
+  // Positive amounts (decimals allowed) in rate/budget fields
+  enforceDecimalInput(document.getElementById('signup-rate'));
+  enforceDecimalInput(document.getElementById('project-budget'));
 
   initFilterBtns();
   initTalentCtas();
@@ -1274,6 +1374,13 @@ async function initAuthUI() {
     const signupEmailInput = document.getElementById('signup-email');
     if (signupEmailInput && !signupEmailInput.value) {
       signupEmailInput.value = localStorage.getItem('userEmail') || '';
+    }
+
+    // One profile per account: if they already registered, lock the form
+    if (document.getElementById('signup-submit-btn')) {
+      hasExistingFreelancerProfile(localStorage.getItem('userEmail')).then(exists => {
+        if (exists) lockFreelancerForm();
+      });
     }
     const firstNameInput = document.getElementById('signup-first-name');
     const lastNameInput = document.getElementById('signup-last-name');
