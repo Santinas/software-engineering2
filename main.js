@@ -1316,6 +1316,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target === this) closeModal();
     });
   }
+
+  showEditProfile();
 });
 
 /* ── AUTH UI (verified session; localStorage is only a display cache) ── */
@@ -1425,4 +1427,26 @@ async function initAuthUI() {
       clientEmailInput.value = localStorage.getItem('userEmail') || '';
     }
   }
+}
+
+async function showEditProfile() {
+    const supabase = await getSupabase();
+    const user = localStorage.getItem("userEmail");
+    const navbar = document.getElementsByClassName('nav-links');
+    const { data, error } = await supabase
+        .from('freelancers')
+        .select('email');
+    for (const freelancerEmail in data){
+        if (user.match(freelancerEmail)){
+            navbar[0].innerHTML =
+                `
+                <li><a href="index.html">Home</a></li>
+                <li><a href="find-talent.html">Find Talent</a></li>
+                <li><a href="edit-profile.html">Edit Profile</a></li>
+                <li><a href="index.html#how">How it Works</a></li>
+                <li><a href="index.html#about">About</a></li>
+                `;
+            return    
+        }
+    } 
 }
