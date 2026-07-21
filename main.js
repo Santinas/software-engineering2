@@ -1256,6 +1256,7 @@ window.logout = function() {
   localStorage.removeItem('isLoggedIn');
   localStorage.removeItem('userName');
   localStorage.removeItem('userType');
+  localStorage.removeItem('userEmail');
   const finish = () => window.location.reload();
   // Also end the Supabase auth session so admin permissions don't linger
   if (supabaseClient) {
