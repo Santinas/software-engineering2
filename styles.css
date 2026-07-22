@@ -447,6 +447,8 @@ img { display:block; }
 .filter-btn.active, .filter-btn:hover {
   background:var(--blue-mid); color:#fff; border-color:var(--blue-mid);
 }
+/* Allow skill chips that reuse the .filter-btn class to indicate multi-select state */
+.filter-btn.chosen { background:var(--blue-mid); color:#fff; border-color:var(--blue-mid); }
 
 
 /* ─── FREELANCER SIGNUP FORM ─── */

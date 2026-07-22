@@ -768,7 +768,10 @@ async function loadAllDynamicProfiles() {
   // don't exist yet when we decorate them with admin controls below.)
   try {
     const supabase = await getSupabase();
-    const { data, error } = await supabase.from('freelancers').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('freelancers')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (error) {
       console.warn('Supabase freelancers table not loaded/created yet.', error);
     } else if (data && data.length > 0) {
@@ -1264,10 +1267,35 @@ function initNotifications() {
 
 /* ── FILTER BUTTONS (visual toggle) ── */
 function initFilterBtns() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
+  // Only attach single-select behavior to top-level filter buttons that are
+  // direct children of a .filter-bar (category buttons). Skill chips inside
+  // nested pickers (e.g. #filter-skills-picker) should be multi-select.
+  document.querySelectorAll('.filter-bar > .filter-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      this.closest('.filter-bar').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      const bar = this.closest('.filter-bar');
+      if (!bar) return;
+      // Only remove 'active' from direct children (avoid touching nested skill chips)
+      Array.from(bar.children).forEach(child => {
+        if (child.classList && child.classList.contains('filter-btn')) child.classList.remove('active');
+      });
       this.classList.add('active');
+    });
+  });
+}
+
+/* ── SKILL PICKER DELEGATED HANDLER (multi-select chips) ── */
+function initSkillPickers() {
+  document.querySelectorAll('.skills-picker').forEach(picker => {
+    picker.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-btn, .skill-pick');
+      if (!btn || !picker.contains(btn)) return;
+      // If this picker is part of a top-level filter-bar, it should still act as a multi-select
+      // skill chip: toggle visual state without affecting category buttons.
+      if (btn.classList.contains('filter-btn')) {
+        btn.classList.toggle('active');
+      } else if (btn.classList.contains('skill-pick')) {
+        btn.classList.toggle('chosen');
+      }
     });
   });
 }
@@ -1366,6 +1394,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initFilterBtns();
   initTalentCtas();
+  initSkillPickers();
 
   // Load any registered profiles dynamically
   loadAllDynamicProfiles();
