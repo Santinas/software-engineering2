@@ -720,6 +720,8 @@ async function renderFreelancerCard(f, grid, pageCategory) {
   const card = document.createElement('div');
   card.className = 'talent-card';
   card.dataset.email = f.email || '';
+  // store skills as a data attribute (pipe-separated) for client-side filtering
+  card.dataset.skills = (f.skills || []).map(s => String(s).trim()).filter(Boolean).join('|');
   card.innerHTML = `
     <div class="talent-body">
       <div class="talent-name">${fullName}</div>
@@ -799,6 +801,9 @@ async function loadAllDynamicProfiles() {
   // Re-initialize click actions on all dynamically rendered cards
   initTalentCtas();
 
+  // Apply any active filters to the freshly rendered list
+  applyFilters();
+
   // Decorate the freshly rendered cards with admin controls. Cards now exist
   // (awaited above); make sure admin status is resolved before we check it,
   // otherwise the Delete buttons silently never get added.
@@ -806,6 +811,29 @@ async function loadAllDynamicProfiles() {
     try { window.isAdminUser = await checkAdminStatus(); } catch (e) { /* ignore */ }
   }
   applyAdminUI();
+}
+
+function getSelectedSkills() {
+  const picker = document.getElementById('filter-skills-picker');
+  if (!picker) return [];
+  return Array.from(picker.querySelectorAll('.filter-btn.active')).map(el => el.textContent.trim());
+}
+
+function applyFilters() {
+  const selectedSkills = getSelectedSkills();
+  const grid = document.querySelector('.talent-grid');
+  if (!grid) return;
+  const cards = Array.from(grid.querySelectorAll('.talent-card'));
+  if (!selectedSkills.length) {
+    cards.forEach(c => c.style.display = '');
+    return;
+  }
+  // Show card if it has at least one of the selected skills (OR behavior)
+  cards.forEach(card => {
+    const cardSkills = (card.dataset.skills || '').split('|').map(s => s.trim()).filter(Boolean);
+    const matches = selectedSkills.some(s => cardSkills.includes(s));
+    card.style.display = matches ? '' : 'none';
+  });
 }
 
 /* ── ADMIN MODE ── */
@@ -1289,13 +1317,14 @@ function initSkillPickers() {
     picker.addEventListener('click', (e) => {
       const btn = e.target.closest('.filter-btn, .skill-pick');
       if (!btn || !picker.contains(btn)) return;
-      // If this picker is part of a top-level filter-bar, it should still act as a multi-select
-      // skill chip: toggle visual state without affecting category buttons.
+      // Toggle the appropriate visual state
       if (btn.classList.contains('filter-btn')) {
         btn.classList.toggle('active');
       } else if (btn.classList.contains('skill-pick')) {
         btn.classList.toggle('chosen');
       }
+      // Re-apply filters after any change
+      applyFilters();
     });
   });
 }
