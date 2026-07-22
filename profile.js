@@ -126,25 +126,30 @@ window.updateProfile = async function(event) {
         };
         const supabase = await getSupabase();
         // Save to Supabase
-        let supabaseSuccess = false;
-        try {
-            
+        try {    
             const { data, error } = await supabase
             .from('freelancers')
             .update([profileData])
-            .eq('email', accountEmail);
+            .eq('email', accountEmail)
+            .select();
             if (error) throw error;
-            supabaseSuccess = true;
-            console.log('Freelancer profile saved successfully to Supabase:', data);
 
-            
+            if(data.length > 0){
+                console.log('Freelancer profile saved successfully to Supabase:', data);
+                alert('Success! Your profile has been updated and is now live on the marketplace!');
+                window.location.href = 'find-talent.html';
+            } else {
+                console.warn('No rows were updated in the freelancers table.');
+                alert('Failed to update profile. Please check your information and try again.');
+            }
+  
         } catch (supabaseErr) {
             console.warn('Failed to update Supabase freelancers table.', supabaseErr);
         }
 
         try {
             const { data, error } = await supabase.auth.updateUser({
-                data: { 'Display name': `${firstName} ${lastName}` }
+                data: { full_name: `${firstName} ${lastName}` }
             })
         }  catch (supabaseErr) {
             console.warn('Failed to update user profile.', supabaseErr);
@@ -159,8 +164,7 @@ window.updateProfile = async function(event) {
         // Reset uploaded files state
         uploadedPortfolioFiles = [];
 
-        alert('Success! Your profile has been updated and is now live on the marketplace!');
-        window.location.href = 'find-talent.html';
+        
     } catch (err) {
         console.error('Error submitting profile:', err);
         alert('An unexpected error occurred. Please try again.');
@@ -174,5 +178,5 @@ window.updateProfile = async function(event) {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-    populateProfile()
+    populateProfile();
 });
