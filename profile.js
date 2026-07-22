@@ -24,12 +24,20 @@ function parseCourseYear(input) {
 
 async function populateProfile(){
     const freelancer = await getFreelancer();
-    const userSkills = freelancer.skills;
+    // No profile yet: leave the form blank so it acts as a "create" form,
+    // and just prefill the (disabled) email with the logged-in account.
+    if (!freelancer) {
+        const emailField = document.getElementById('signup-email');
+        if (emailField) emailField.value = localStorage.getItem('userEmail') || '';
+        return;
+    }
+    const userSkills = freelancer.skills || [];
     const skillList = document.getElementsByClassName('skill-pick');
-    const program = parseCourseYear(freelancer.program);
-    const gitPortfolio = JSON.parse(freelancer.portfolio);
+    const program = parseCourseYear(freelancer.program || '');
+    let gitPortfolio = [];
+    try { gitPortfolio = JSON.parse(freelancer.portfolio) || []; } catch (e) { gitPortfolio = []; }
     let portfolioUrl = null;
-    if(gitPortfolio[0].toString().startsWith('http')){
+    if(gitPortfolio.length && gitPortfolio[0].toString().startsWith('http')){
         portfolioUrl = gitPortfolio[0].toString();
     }
     
@@ -125,40 +133,39 @@ window.updateProfile = async function(event) {
             portfolio: JSON.stringify(portfolioUrls) // Column is plain text, so store as a JSON string
         };
         const supabase = await getSupabase();
-        // Save to Supabase
+        // Save to Supabase: update the student's existing profile, or create
+        // one if they don't have a row yet. The edit page is also reachable by
+        // users who never finished the "Offer My Services" signup, so a plain
+        // UPDATE would silently change 0 rows for them.
         let supabaseSuccess = false;
         let saveErrorDetail = '';
-        // TEMP DIAGNOSTIC: find out which login session the browser actually has.
-        // The update policy only allows the write if this session email matches
-        // the profile row's email.
-        let sessionEmail = '(no session)';
         try {
-            const { data: userData } = await supabase.auth.getUser();
-            sessionEmail = userData?.user?.email || '(no session)';
-        } catch (e) { /* ignore */ }
-        console.log('DIAGNOSTIC — logged-in session email:', sessionEmail,
-                    '| updating row where email =', accountEmail);
-        try {
-            // Pass a plain object (not an array), and .select() so Supabase
-            // returns the changed rows — an empty result means RLS silently
-            // blocked the update (run supabase-security-policies.sql to add
-            // the freelancers update policy).
-            const { data, error } = await supabase
-            .from('freelancers')
-            .update(profileData)
-            .eq('email', accountEmail)
-            .select();
+            // Try to update an existing row first. .select() returns the
+            // changed rows, so an empty result means no profile exists yet.
+            let { data, error } = await supabase
+                .from('freelancers')
+                .update(profileData)
+                .eq('email', accountEmail)
+                .select();
             if (error) throw error;
+
+            // No existing profile for this email — create it instead.
             if (!data || !data.length) {
-                throw new Error('0 rows changed — either RLS blocked it (logged-in email "' + sessionEmail + '" must equal the profile email "' + accountEmail + '"), or no row matches that email.');
+                ({ data, error } = await supabase
+                    .from('freelancers')
+                    .insert([profileData])
+                    .select());
+                if (error) throw error;
+            }
+
+            if (!data || !data.length) {
+                throw new Error('The change was blocked by the database (row-level security). Make sure you are logged in with the same email as your profile.');
             }
             supabaseSuccess = true;
             console.log('Freelancer profile saved successfully to Supabase:', data);
-
-
         } catch (supabaseErr) {
             saveErrorDetail = supabaseErr?.message || String(supabaseErr);
-            console.warn('Failed to update Supabase freelancers table.', supabaseErr);
+            console.warn('Failed to save to Supabase freelancers table.', supabaseErr);
         }
 
         try {
@@ -176,7 +183,7 @@ window.updateProfile = async function(event) {
     //   localStorage.setItem('localFreelancers', JSON.stringify(localFreelancers));
 
         if (!supabaseSuccess) {
-            alert('Your profile could not be updated.\n\nReason: ' + (saveErrorDetail || 'unknown') + '\n\nLogged-in as: ' + sessionEmail + '\nProfile email: ' + accountEmail);
+            alert('Your profile could not be saved.\n\nReason: ' + (saveErrorDetail || 'unknown'));
             return;
         }
 
