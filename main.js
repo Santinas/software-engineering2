@@ -82,7 +82,7 @@ async function getCompletedCommissions(freelancerEmail) {
         .from('commissions')
         .select('project_type, project_desc')
         .eq('freelancer_email', freelancerEmail)
-        .eq('status', 'accepted');
+        .eq('status', 'completed');
     return { data, error };
   } catch (error) {
     console.error('Error fetching completed commissions:', error);
@@ -127,8 +127,8 @@ async function openProfile(name) {
 
   const portEl = document.getElementById('modal-portfolio-grid');
   portEl.innerHTML = f.portfolio.map((src, i) => renderPortfolioItem(src, i)).join('');
+  
   const comms = await getCompletedCommissions(f.email);
-
   const commEl = document.getElementById('modal-commission-grid');
   commEl.innerHTML = comms.data.map((c, i) => renderCommissionCard('✔️', c.project_type, c.project_desc)).join(''); 
   
@@ -720,6 +720,8 @@ async function renderFreelancerCard(f, grid, pageCategory) {
   const card = document.createElement('div');
   card.className = 'talent-card';
   card.dataset.email = f.email || '';
+  // store skills as a data attribute (pipe-separated) for client-side filtering
+  card.dataset.skills = (f.skills || []).map(s => String(s).trim()).filter(Boolean).join('|');
   card.innerHTML = `
     <div class="talent-body">
       <div class="talent-name">${fullName}</div>
@@ -768,7 +770,10 @@ async function loadAllDynamicProfiles() {
   // don't exist yet when we decorate them with admin controls below.)
   try {
     const supabase = await getSupabase();
-    const { data, error } = await supabase.from('freelancers').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase
+      .from('freelancers')
+      .select('*')
+      .order('created_at', { ascending: false });
     if (error) {
       console.warn('Supabase freelancers table not loaded/created yet.', error);
     } else if (data && data.length > 0) {
@@ -796,6 +801,9 @@ async function loadAllDynamicProfiles() {
   // Re-initialize click actions on all dynamically rendered cards
   initTalentCtas();
 
+  // Apply any active filters to the freshly rendered list
+  applyFilters();
+
   // Decorate the freshly rendered cards with admin controls. Cards now exist
   // (awaited above); make sure admin status is resolved before we check it,
   // otherwise the Delete buttons silently never get added.
@@ -803,6 +811,29 @@ async function loadAllDynamicProfiles() {
     try { window.isAdminUser = await checkAdminStatus(); } catch (e) { /* ignore */ }
   }
   applyAdminUI();
+}
+
+function getSelectedSkills() {
+  const picker = document.getElementById('filter-skills-picker');
+  if (!picker) return [];
+  return Array.from(picker.querySelectorAll('.filter-btn.active')).map(el => el.textContent.trim());
+}
+
+function applyFilters() {
+  const selectedSkills = getSelectedSkills();
+  const grid = document.querySelector('.talent-grid');
+  if (!grid) return;
+  const cards = Array.from(grid.querySelectorAll('.talent-card'));
+  if (!selectedSkills.length) {
+    cards.forEach(c => c.style.display = '');
+    return;
+  }
+  // Show card if it has at least one of the selected skills (OR behavior)
+  cards.forEach(card => {
+    const cardSkills = (card.dataset.skills || '').split('|').map(s => s.trim()).filter(Boolean);
+    const matches = selectedSkills.some(s => cardSkills.includes(s));
+    card.style.display = matches ? '' : 'none';
+  });
 }
 
 /* ── ADMIN MODE ── */
@@ -991,12 +1022,13 @@ function renderNotifList() {
     const received = c._kind === 'received';
     const other = received ? (c.client_name || c.client_email || 'Client')
                            : (c.freelancer_name || 'Freelancer');
-    const status = c.status || 'pending';
+    const status = String(c.status || 'pending').toLowerCase().trim();
     const statusChip =
-      c.payment_ref        ? `<span class="notif-status paid">💰 Paid · Ref ${escapeHtml(c.payment_ref)}</span>` :
-      status === 'accepted' ? `<span class="notif-status accepted">✓ Accepted</span>` :
-      status === 'declined' ? `<span class="notif-status declined">✕ Declined</span>` :
-                              `<span class="notif-status pending">Pending</span>`;
+      status === 'completed' ? `<span class="notif-status completed">✅ Completed</span>` :
+      c.payment_ref          ? `<span class="notif-status paid">💰 Paid · Ref ${escapeHtml(c.payment_ref)}</span>` :
+      status === 'accepted'  ? `<span class="notif-status accepted">✓ Accepted</span>` :
+      status === 'declined'  ? `<span class="notif-status declined">✕ Declined</span>` :
+                               `<span class="notif-status pending">Pending</span>`;
     const title = received
       ? `<strong>${escapeHtml(other)}</strong> booked you for a commission`
       : `You booked <strong>${escapeHtml(other)}</strong>`;
@@ -1010,8 +1042,12 @@ function renderNotifList() {
       actions += `<button class="notif-btn pay" data-act="pay" data-i="${i}">💳 Upload Payment</button>`;
     }
     if (received && c.payment_screenshot) {
-      actions += `<button class="notif-btn view" data-act="shot" data-i="${i}">🧾 View Payment</button>`;
+      actions += `<button class="notif-btn view" data-act="shot" data-i="${i}">🧾 View Payment</button>`;                  
     }
+    if (received && c.payment_screenshot && status !== 'completed') {
+      actions += `<button class="notif-btn complete" data-act="complete" data-i="${i}">✅ Complete</button>`;                 
+    }
+    
     const chatEmail = received ? c.client_email : c.freelancer_email;
     if (chatEmail) {
       actions += `<button class="notif-btn chat" data-act="chat" data-i="${i}">💬 Chat</button>`;
@@ -1089,6 +1125,13 @@ async function handleNotifAction(act, i) {
     openPaymentModal(i);
   } else if (act === 'shot') {
     viewPaymentShot(c);
+  } else if (act === 'complete') {
+    if (!confirm('Mark this commission as completed? This will set the commission status to Completed.')) return;
+    await updateCommission(c, {
+      status: 'completed',
+      status_at: new Date().toISOString()
+    });
+    await loadAllDynamicProfiles(); // refresh completed projects count on freelancer cards
   }
 }
 
@@ -1252,10 +1295,36 @@ function initNotifications() {
 
 /* ── FILTER BUTTONS (visual toggle) ── */
 function initFilterBtns() {
-  document.querySelectorAll('.filter-btn').forEach(btn => {
+  // Only attach single-select behavior to top-level filter buttons that are
+  // direct children of a .filter-bar (category buttons). Skill chips inside
+  // nested pickers (e.g. #filter-skills-picker) should be multi-select.
+  document.querySelectorAll('.filter-bar > .filter-btn').forEach(btn => {
     btn.addEventListener('click', function () {
-      this.closest('.filter-bar').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      const bar = this.closest('.filter-bar');
+      if (!bar) return;
+      // Only remove 'active' from direct children (avoid touching nested skill chips)
+      Array.from(bar.children).forEach(child => {
+        if (child.classList && child.classList.contains('filter-btn')) child.classList.remove('active');
+      });
       this.classList.add('active');
+    });
+  });
+}
+
+/* ── SKILL PICKER DELEGATED HANDLER (multi-select chips) ── */
+function initSkillPickers() {
+  document.querySelectorAll('.skills-picker').forEach(picker => {
+    picker.addEventListener('click', (e) => {
+      const btn = e.target.closest('.filter-btn, .skill-pick');
+      if (!btn || !picker.contains(btn)) return;
+      // Toggle the appropriate visual state
+      if (btn.classList.contains('filter-btn')) {
+        btn.classList.toggle('active');
+      } else if (btn.classList.contains('skill-pick')) {
+        btn.classList.toggle('chosen');
+      }
+      // Re-apply filters after any change
+      applyFilters();
     });
   });
 }
@@ -1354,6 +1423,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initFilterBtns();
   initTalentCtas();
+  initSkillPickers();
 
   // Load any registered profiles dynamically
   loadAllDynamicProfiles();
