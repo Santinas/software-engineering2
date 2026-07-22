@@ -127,6 +127,17 @@ window.updateProfile = async function(event) {
         const supabase = await getSupabase();
         // Save to Supabase
         let supabaseSuccess = false;
+        let saveErrorDetail = '';
+        // TEMP DIAGNOSTIC: find out which login session the browser actually has.
+        // The update policy only allows the write if this session email matches
+        // the profile row's email.
+        let sessionEmail = '(no session)';
+        try {
+            const { data: userData } = await supabase.auth.getUser();
+            sessionEmail = userData?.user?.email || '(no session)';
+        } catch (e) { /* ignore */ }
+        console.log('DIAGNOSTIC — logged-in session email:', sessionEmail,
+                    '| updating row where email =', accountEmail);
         try {
             // Pass a plain object (not an array), and .select() so Supabase
             // returns the changed rows — an empty result means RLS silently
@@ -139,13 +150,14 @@ window.updateProfile = async function(event) {
             .select();
             if (error) throw error;
             if (!data || !data.length) {
-                throw new Error('Update was blocked — no matching row was changed. Make sure supabase-security-policies.sql has been run to add the freelancers update policy.');
+                throw new Error('0 rows changed — either RLS blocked it (logged-in email "' + sessionEmail + '" must equal the profile email "' + accountEmail + '"), or no row matches that email.');
             }
             supabaseSuccess = true;
             console.log('Freelancer profile saved successfully to Supabase:', data);
 
 
         } catch (supabaseErr) {
+            saveErrorDetail = supabaseErr?.message || String(supabaseErr);
             console.warn('Failed to update Supabase freelancers table.', supabaseErr);
         }
 
@@ -164,7 +176,7 @@ window.updateProfile = async function(event) {
     //   localStorage.setItem('localFreelancers', JSON.stringify(localFreelancers));
 
         if (!supabaseSuccess) {
-            alert('Your profile could not be updated. Please try again.');
+            alert('Your profile could not be updated.\n\nReason: ' + (saveErrorDetail || 'unknown') + '\n\nLogged-in as: ' + sessionEmail + '\nProfile email: ' + accountEmail);
             return;
         }
 
