@@ -179,11 +179,12 @@ window.updateProfile = async function(event) {
         }
 
         try {
-            const { data, error } = await supabase.auth.updateUser({
-                data: { 'Display name': `${firstName} ${lastName}` }
-            })
+            const { data: authData, error: authError } = await supabase.auth.updateUser({
+                data: { full_name: `${firstName} ${lastName}` }
+            });
+            if (authError) throw authError;
         }  catch (supabaseErr) {
-            console.warn('Failed to update user profile.', supabaseErr);
+            console.warn('Failed to update user profile metadata.', supabaseErr);
         }
         
         
