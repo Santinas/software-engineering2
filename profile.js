@@ -128,16 +128,23 @@ window.updateProfile = async function(event) {
         // Save to Supabase
         let supabaseSuccess = false;
         try {
-            
+            // Pass a plain object (not an array), and .select() so Supabase
+            // returns the changed rows — an empty result means RLS silently
+            // blocked the update (run supabase-security-policies.sql to add
+            // the freelancers update policy).
             const { data, error } = await supabase
             .from('freelancers')
-            .update([profileData])
-            .eq('email', accountEmail);
+            .update(profileData)
+            .eq('email', accountEmail)
+            .select();
             if (error) throw error;
+            if (!data || !data.length) {
+                throw new Error('Update was blocked — no matching row was changed. Make sure supabase-security-policies.sql has been run to add the freelancers update policy.');
+            }
             supabaseSuccess = true;
             console.log('Freelancer profile saved successfully to Supabase:', data);
 
-            
+
         } catch (supabaseErr) {
             console.warn('Failed to update Supabase freelancers table.', supabaseErr);
         }
@@ -155,6 +162,11 @@ window.updateProfile = async function(event) {
     //   const localFreelancers = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
     //   localFreelancers.push(profileData);
     //   localStorage.setItem('localFreelancers', JSON.stringify(localFreelancers));
+
+        if (!supabaseSuccess) {
+            alert('Your profile could not be updated. Please try again.');
+            return;
+        }
 
         // Reset uploaded files state
         uploadedPortfolioFiles = [];

@@ -26,6 +26,19 @@ create policy "freelancers_insert_students" on public.freelancers
     and lower(coalesce(auth.jwt() ->> 'email', '')) like '%@iacademy.edu.ph'
   );
 
+-- A student may edit their OWN profile (matched by their verified email).
+-- Without this policy, RLS silently blocks every update to freelancers:
+-- the row is invisible to the UPDATE, so it changes nothing and returns no
+-- error — which is why edits on the Edit Profile page never took effect.
+drop policy if exists "freelancers_update" on public.freelancers;
+drop policy if exists "freelancers_update_own" on public.freelancers;
+create policy "freelancers_update_own" on public.freelancers
+  for update using (
+    lower(coalesce(auth.jwt() ->> 'email', '')) = lower(email)
+  ) with check (
+    lower(coalesce(auth.jwt() ->> 'email', '')) = lower(email)
+  );
+
 -- ── 2. CHAT ──
 -- Messages are private: only the two participants (or an admin) can read
 -- a conversation, and you can only send messages as yourself.
