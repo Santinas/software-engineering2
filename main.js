@@ -82,7 +82,7 @@ async function getCompletedCommissions(freelancerEmail) {
         .from('commissions')
         .select('project_type, project_desc')
         .eq('freelancer_email', freelancerEmail)
-        .eq('status', 'accepted');
+        .eq('status', 'completed');
     return { data, error };
   } catch (error) {
     console.error('Error fetching completed commissions:', error);
@@ -127,8 +127,8 @@ async function openProfile(name) {
 
   const portEl = document.getElementById('modal-portfolio-grid');
   portEl.innerHTML = f.portfolio.map((src, i) => renderPortfolioItem(src, i)).join('');
+  
   const comms = await getCompletedCommissions(f.email);
-
   const commEl = document.getElementById('modal-commission-grid');
   commEl.innerHTML = comms.data.map((c, i) => renderCommissionCard('✔️', c.project_type, c.project_desc)).join(''); 
   
@@ -991,12 +991,13 @@ function renderNotifList() {
     const received = c._kind === 'received';
     const other = received ? (c.client_name || c.client_email || 'Client')
                            : (c.freelancer_name || 'Freelancer');
-    const status = c.status || 'pending';
+    const status = String(c.status || 'pending').toLowerCase().trim();
     const statusChip =
-      c.payment_ref        ? `<span class="notif-status paid">💰 Paid · Ref ${escapeHtml(c.payment_ref)}</span>` :
-      status === 'accepted' ? `<span class="notif-status accepted">✓ Accepted</span>` :
-      status === 'declined' ? `<span class="notif-status declined">✕ Declined</span>` :
-                              `<span class="notif-status pending">Pending</span>`;
+      status === 'completed' ? `<span class="notif-status completed">✅ Completed</span>` :
+      c.payment_ref          ? `<span class="notif-status paid">💰 Paid · Ref ${escapeHtml(c.payment_ref)}</span>` :
+      status === 'accepted'  ? `<span class="notif-status accepted">✓ Accepted</span>` :
+      status === 'declined'  ? `<span class="notif-status declined">✕ Declined</span>` :
+                               `<span class="notif-status pending">Pending</span>`;
     const title = received
       ? `<strong>${escapeHtml(other)}</strong> booked you for a commission`
       : `You booked <strong>${escapeHtml(other)}</strong>`;
@@ -1010,8 +1011,12 @@ function renderNotifList() {
       actions += `<button class="notif-btn pay" data-act="pay" data-i="${i}">💳 Upload Payment</button>`;
     }
     if (received && c.payment_screenshot) {
-      actions += `<button class="notif-btn view" data-act="shot" data-i="${i}">🧾 View Payment</button>`;
+      actions += `<button class="notif-btn view" data-act="shot" data-i="${i}">🧾 View Payment</button>`;                  
     }
+    if (received && c.payment_screenshot && status !== 'completed') {
+      actions += `<button class="notif-btn complete" data-act="complete" data-i="${i}">✅ Complete</button>`;                 
+    }
+    
     const chatEmail = received ? c.client_email : c.freelancer_email;
     if (chatEmail) {
       actions += `<button class="notif-btn chat" data-act="chat" data-i="${i}">💬 Chat</button>`;
@@ -1089,6 +1094,13 @@ async function handleNotifAction(act, i) {
     openPaymentModal(i);
   } else if (act === 'shot') {
     viewPaymentShot(c);
+  } else if (act === 'complete') {
+    if (!confirm('Mark this commission as completed? This will set the commission status to Completed.')) return;
+    await updateCommission(c, {
+      status: 'completed',
+      status_at: new Date().toISOString()
+    });
+    await loadAllDynamicProfiles(); // refresh completed projects count on freelancer cards
   }
 }
 
