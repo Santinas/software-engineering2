@@ -750,38 +750,51 @@ async function loadAllDynamicProfiles() {
     pageCategory = 'arts';
   }
 
-  // 1. Load local profiles first.
-  // renderFreelancerCard is async, so await each one — otherwise the cards
-  // don't exist yet when we decorate them with admin controls below.
-  const localList = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
-  for (const f of localList) {
-    await renderFreelancerCard(f, grid, pageCategory);
-  }
+  // Track what we've already rendered so the same person never appears twice.
+  const renderedNames = new Set();
+  const renderedEmails = new Set();
+  const markRendered = (f) => {
+    renderedNames.add(`${f.first_name} ${f.last_name}`);
+    const e = (f.email || '').toLowerCase().trim();
+    if (e) renderedEmails.add(e);
+  };
+  const alreadyRendered = (f) => {
+    const e = (f.email || '').toLowerCase().trim();
+    return renderedNames.has(`${f.first_name} ${f.last_name}`) || (e && renderedEmails.has(e));
+  };
 
-  // 2. Load Supabase profiles
+  // 1. Load Supabase profiles FIRST — this is the live source of truth.
+  // (renderFreelancerCard is async, so await each one; otherwise the cards
+  // don't exist yet when we decorate them with admin controls below.)
   try {
     const supabase = await getSupabase();
     const { data, error } = await supabase.from('freelancers').select('*').order('created_at', { ascending: false });
     if (error) {
       console.warn('Supabase freelancers table not loaded/created yet.', error);
-      return;
-    }
-
-    if (data && data.length > 0) {
-      const renderedNames = new Set(localList.map(item => `${item.first_name} ${item.last_name}`));
+    } else if (data && data.length > 0) {
       for (const f of data) {
-        const fullName = `${f.first_name} ${f.last_name}`;
-        if (!renderedNames.has(fullName)) {
-          await renderFreelancerCard(f, grid, pageCategory);
-          renderedNames.add(fullName);
-        }
+        if (alreadyRendered(f)) continue;
+        await renderFreelancerCard(f, grid, pageCategory);
+        markRendered(f);
       }
-      // Re-initialize click actions on any new dynamic cards
-      initTalentCtas();
     }
   } catch (err) {
     console.warn('Supabase connection or table error:', err);
   }
+
+  // 2. Local fallback ONLY for profiles not already loaded from Supabase
+  // (e.g. offline, or the table is unavailable). A stale local copy must
+  // never override the live Supabase profile — that's what made edited
+  // profiles keep showing their old details on Find Talent.
+  const localList = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
+  for (const f of localList) {
+    if (alreadyRendered(f)) continue;
+    await renderFreelancerCard(f, grid, pageCategory);
+    markRendered(f);
+  }
+
+  // Re-initialize click actions on all dynamically rendered cards
+  initTalentCtas();
 
   // Decorate the freshly rendered cards with admin controls. Cards now exist
   // (awaited above); make sure admin status is resolved before we check it,
