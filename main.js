@@ -750,9 +750,13 @@ async function loadAllDynamicProfiles() {
     pageCategory = 'arts';
   }
 
-  // 1. Load local profiles first
+  // 1. Load local profiles first.
+  // renderFreelancerCard is async, so await each one — otherwise the cards
+  // don't exist yet when we decorate them with admin controls below.
   const localList = JSON.parse(localStorage.getItem('localFreelancers') || '[]');
-  localList.forEach(f => renderFreelancerCard(f, grid, pageCategory));
+  for (const f of localList) {
+    await renderFreelancerCard(f, grid, pageCategory);
+  }
 
   // 2. Load Supabase profiles
   try {
@@ -762,16 +766,16 @@ async function loadAllDynamicProfiles() {
       console.warn('Supabase freelancers table not loaded/created yet.', error);
       return;
     }
-    
+
     if (data && data.length > 0) {
       const renderedNames = new Set(localList.map(item => `${item.first_name} ${item.last_name}`));
-      data.forEach(f => {
+      for (const f of data) {
         const fullName = `${f.first_name} ${f.last_name}`;
         if (!renderedNames.has(fullName)) {
-          renderFreelancerCard(f, grid, pageCategory);
+          await renderFreelancerCard(f, grid, pageCategory);
           renderedNames.add(fullName);
         }
-      });
+      }
       // Re-initialize click actions on any new dynamic cards
       initTalentCtas();
     }
@@ -779,7 +783,12 @@ async function loadAllDynamicProfiles() {
     console.warn('Supabase connection or table error:', err);
   }
 
-  // If the admin check already resolved, decorate the freshly rendered cards
+  // Decorate the freshly rendered cards with admin controls. Cards now exist
+  // (awaited above); make sure admin status is resolved before we check it,
+  // otherwise the Delete buttons silently never get added.
+  if (!window.isAdminUser) {
+    try { window.isAdminUser = await checkAdminStatus(); } catch (e) { /* ignore */ }
+  }
   applyAdminUI();
 }
 
