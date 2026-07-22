@@ -1,12 +1,17 @@
 async function getFreelancer() {
     const supabase = await getSupabase();
-    const userEmail = localStorage.getItem("userEmail");
+    const userEmail = (localStorage.getItem("userEmail") || '').toLowerCase().trim();
+    if (!userEmail) return null;
     const { data, error } = await supabase
         .from('freelancers')
         .select('*')
-        .eq('email', userEmail)
+        .ilike('email', userEmail)
         .limit(1);
-    return data[0];    
+    if (error) {
+        console.warn('Could not load freelancer profile.', error);
+        return null;
+    }
+    return (data && data[0]) || null;
 }
 
 function parseCourseYear(input) {
@@ -23,12 +28,17 @@ function parseCourseYear(input) {
 }
 
 async function populateProfile(){
+    // The Edit Profile page is only for users who already have a freelancer
+    // profile. Send everyone else to where they belong.
+    if (localStorage.getItem('isLoggedIn') !== 'true') {
+        alert('Please log in to edit your profile.');
+        window.location.href = 'login.html';
+        return;
+    }
     const freelancer = await getFreelancer();
-    // No profile yet: leave the form blank so it acts as a "create" form,
-    // and just prefill the (disabled) email with the logged-in account.
     if (!freelancer) {
-        const emailField = document.getElementById('signup-email');
-        if (emailField) emailField.value = localStorage.getItem('userEmail') || '';
+        alert("You haven't set up a freelancer profile yet. Let's create one first.");
+        window.location.href = 'offer-services.html';
         return;
     }
     const userSkills = freelancer.skills || [];

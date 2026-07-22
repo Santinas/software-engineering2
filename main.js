@@ -1461,23 +1461,19 @@ async function initAuthUI() {
 }
 
 async function showEditProfile() {
-    const supabase = await getSupabase();
-    const user = localStorage.getItem("userEmail");
-    const navbar = document.getElementsByClassName('nav-links');
-    const { data, error } = await supabase
-        .from('freelancers')
-        .select('email');
-    for (const freelancerEmail in data){
-        if (user.match(freelancerEmail)){
-            navbar[0].innerHTML =
-                `
-                <li><a href="index.html">Home</a></li>
-                <li><a href="find-talent.html">Find Talent</a></li>
-                <li><a href="edit-profile.html">Edit Profile</a></li>
-                <li><a href="index.html#how">How it Works</a></li>
-                <li><a href="index.html#about">About</a></li>
-                `;
-            return    
-        }
-    } 
+    // Swap the "Offer My Services" nav link to "Edit Profile" once the
+    // logged-in student actually has a freelancer profile. Users who haven't
+    // signed up as a freelancer keep "Offer My Services" so they can create
+    // one first.
+    if (localStorage.getItem('isLoggedIn') !== 'true') return;
+    const email = localStorage.getItem('userEmail');
+    if (!email) return;
+
+    if (!(await hasExistingFreelancerProfile(email))) return;
+
+    document.querySelectorAll('.nav-links a[href="offer-services.html"]').forEach(a => {
+        a.setAttribute('href', 'edit-profile.html');
+        a.textContent = 'Edit Profile';
+        if (a.parentElement) a.parentElement.style.display = ''; // ensure it's visible
+    });
 }
